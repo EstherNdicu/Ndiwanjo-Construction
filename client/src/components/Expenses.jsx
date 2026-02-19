@@ -1,0 +1,132 @@
+import { useState, useEffect } from 'react'
+
+export default function Expenses() {
+  const [expenses, setExpenses] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ title: '', amount: '', category: '', projectName: '' })
+
+  useEffect(() => { fetchExpenses() }, [])
+
+  const fetchExpenses = async () => {
+    const res = await fetch('http://localhost:5000/expenses')
+    setExpenses(await res.json())
+  }
+
+  const handleSubmit = async () => {
+    await fetch('http://localhost:5000/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    })
+    setForm({ title: '', amount: '', category: '', projectName: '' })
+    setShowForm(false)
+    fetchExpenses()
+  }
+
+  const handleDelete = async (id) => {
+    await fetch(`http://localhost:5000/expenses/${id}`, { method: 'DELETE' })
+    fetchExpenses()
+  }
+
+  const total = expenses.reduce((sum, e) => sum + e.amount, 0)
+  const pending = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + e.amount, 0)
+  const paid = expenses.filter(e => e.category === 'paid').reduce((sum, e) => sum + e.amount, 0)
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-xl font-bold text-white">Expenses</h3>
+          <p className="text-zinc-500 text-sm">{expenses.length} total records</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)}
+          className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+          {showForm ? 'Cancel' : '+ Add Expense'}
+        </button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <p className="text-zinc-500 text-sm">Total Expenses</p>
+          <p className="text-3xl font-bold text-white mt-1">${total.toLocaleString()}</p>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <p className="text-zinc-500 text-sm">Pending Payments</p>
+          <p className="text-3xl font-bold text-red-400 mt-1">${pending.toLocaleString()}</p>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <p className="text-zinc-500 text-sm">Paid</p>
+          <p className="text-3xl font-bold text-green-400 mt-1">${paid.toLocaleString()}</p>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 grid grid-cols-2 gap-4">
+          <input placeholder="Expense Title" value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          <input placeholder="Amount" type="number" value={form.amount}
+            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+            className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="">Select Category</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="materials">Materials</option>
+            <option value="labour">Labour</option>
+            <option value="equipment">Equipment</option>
+            <option value="other">Other</option>
+          </select>
+          <input placeholder="Project Name (optional)" value={form.projectName}
+            onChange={(e) => setForm({ ...form, projectName: e.target.value })}
+            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          <div className="col-span-2">
+            <button onClick={handleSubmit}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
+              Save Expense
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b border-zinc-800">
+              {['Title', 'Amount', 'Category', 'Project', 'Date', 'Action'].map((h) => (
+                <th key={h} className="px-6 py-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {expenses.length === 0 ? (
+              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">No expenses yet. Add one above.</td></tr>
+            ) : expenses.map((e) => (
+              <tr key={e.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
+                <td className="px-6 py-4 text-white font-medium">{e.title}</td>
+                <td className="px-6 py-4 text-orange-400 font-bold">${e.amount.toLocaleString()}</td>
+                <td className="px-6 py-4">
+                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                    e.category === 'paid' ? 'bg-green-500/20 text-green-400' :
+                    e.category === 'pending' ? 'bg-red-500/20 text-red-400' :
+                    'bg-zinc-700 text-zinc-400'
+                  }`}>{e.category || 'uncategorized'}</span>
+                </td>
+                <td className="px-6 py-4 text-zinc-400">{e.projectName || '-'}</td>
+                <td className="px-6 py-4 text-zinc-400">{new Date(e.createdAt).toLocaleDateString()}</td>
+                <td className="px-6 py-4">
+                  <button onClick={() => handleDelete(e.id)}
+                    className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Expenses from './components/Expenses'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import Employees from './components/Employees'
@@ -36,6 +37,7 @@ export default function App() {
     { name: 'Customers', icon: '👥' },
     { name: 'Projects', icon: '🏗️' },
     { name: 'Inventory', icon: '📦' },
+    { name: 'Expenses', icon: '💰' },
   ]
 
   const renderPage = () => {
@@ -45,6 +47,7 @@ export default function App() {
       case 'Customers': return <Customers />
       case 'Projects': return <Projects />
       case 'Inventory': return <Inventory />
+      case 'Expenses': return <Expenses />
       default: return <Dashboard stats={stats} />
     }
   }
