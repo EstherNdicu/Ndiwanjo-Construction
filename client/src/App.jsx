@@ -1,34 +1,59 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [activePage, setActivePage] = useState('Dashboard')
+
+  const menuItems = [
+    { name: 'Dashboard', icon: '📊' },
+    { name: 'Employees', icon: '👷' },
+    { name: 'Customers', icon: '👥' },
+    { name: 'Projects', icon: '🏗️' },
+    { name: 'Inventory', icon: '📦' },
+  ]
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="flex h-screen bg-gray-100">
+      
+      {/* Sidebar */}
+      <div className="w-64 bg-gray-900 text-white flex flex-col">
+        <div className="p-6 border-b border-gray-700">
+          <h1 className="text-xl font-bold">Ndiwanjo Construction</h1>
+          <p className="text-gray-400 text-sm">Management System</p>
+        </div>
+        <nav className="flex-1 p-4">
+          {menuItems.map((item) => (
+            <button
+              key={item.name}
+              onClick={() => setActivePage(item.name)}
+              className={`w-full text-left px-4 py-3 rounded-lg mb-2 flex items-center gap-3 transition-colors ${
+                activePage === item.name
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              <span>{item.icon}</span>
+              <span>{item.name}</span>
+            </button>
+          ))}
+        </nav>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-white shadow px-8 py-4">
+          <h2 className="text-2xl font-semibold text-gray-800">{activePage}</h2>
+        </div>
+
+        {/* Page Content */}
+        <div className="flex-1 p-8 overflow-auto">
+          <div className="bg-white rounded-xl shadow p-6">
+            <p className="text-gray-500">Welcome to {activePage} module</p>
+          </div>
+        </div>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+
+    </div>
   )
 }
 
