@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "express": "^5.2.1",
     "prisma": "^5.22.0"
   },
   "name": "ndiwanjo-construction",
@@ -14,5 +16,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.2.0"
+  }
 }
