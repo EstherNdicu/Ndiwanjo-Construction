@@ -1,5 +1,7 @@
-const express = require('express')
+﻿const express = require('express')
 const cors = require('cors')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
 const { PrismaClient } = require('@prisma/client')
 require('dotenv').config()
 
@@ -13,7 +15,23 @@ app.get('/', (req, res) => {
   res.send('Server is running!')
 })
 
-// ---- EMPLOYEES ----
+app.post('/register', async (req, res) => {
+  const { name, email, password } = req.body
+  const hashed = await bcrypt.hash(password, 10)
+  await prisma.user.create({ data: { name, email, password: hashed } })
+  res.json({ message: 'User created successfully' })
+})
+
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user) return res.status(401).json({ message: 'Invalid email or password' })
+  const valid = await bcrypt.compare(password, user.password)
+  if (!valid) return res.status(401).json({ message: 'Invalid email or password' })
+  const token = jwt.sign({ id: user.id, email: user.email }, 'secret123', { expiresIn: '1d' })
+  res.json({ token, name: user.name })
+})
+
 app.get('/employees', async (req, res) => {
   const employees = await prisma.employee.findMany()
   res.json(employees)
@@ -21,19 +39,15 @@ app.get('/employees', async (req, res) => {
 
 app.post('/employees', async (req, res) => {
   const { name, email, phone, role, department, salary } = req.body
-  const employee = await prisma.employee.create({
-    data: { name, email, phone, role, department, salary: parseFloat(salary) }
-  })
+  const employee = await prisma.employee.create({ data: { name, email, phone, role, department, salary: parseFloat(salary) } })
   res.json(employee)
 })
 
 app.delete('/employees/:id', async (req, res) => {
-  const { id } = req.params
-  await prisma.employee.delete({ where: { id: parseInt(id) } })
-  res.json({ message: 'Employee deleted' })
+  await prisma.employee.delete({ where: { id: parseInt(req.params.id) } })
+  res.json({ message: 'Deleted' })
 })
 
-// ---- CUSTOMERS ----
 app.get('/customers', async (req, res) => {
   const customers = await prisma.customer.findMany()
   res.json(customers)
@@ -41,19 +55,15 @@ app.get('/customers', async (req, res) => {
 
 app.post('/customers', async (req, res) => {
   const { name, email, phone, address } = req.body
-  const customer = await prisma.customer.create({
-    data: { name, email, phone, address }
-  })
+  const customer = await prisma.customer.create({ data: { name, email, phone, address } })
   res.json(customer)
 })
 
 app.delete('/customers/:id', async (req, res) => {
-  const { id } = req.params
-  await prisma.customer.delete({ where: { id: parseInt(id) } })
-  res.json({ message: 'Customer deleted' })
+  await prisma.customer.delete({ where: { id: parseInt(req.params.id) } })
+  res.json({ message: 'Deleted' })
 })
 
-// ---- PROJECTS ----
 app.get('/projects', async (req, res) => {
   const projects = await prisma.project.findMany()
   res.json(projects)
@@ -61,19 +71,15 @@ app.get('/projects', async (req, res) => {
 
 app.post('/projects', async (req, res) => {
   const { name, description, status, startDate, endDate } = req.body
-  const project = await prisma.project.create({
-    data: { name, description, status, startDate: new Date(startDate), endDate: new Date(endDate) }
-  })
+  const project = await prisma.project.create({ data: { name, description, status, startDate: new Date(startDate), endDate: new Date(endDate) } })
   res.json(project)
 })
 
 app.delete('/projects/:id', async (req, res) => {
-  const { id } = req.params
-  await prisma.project.delete({ where: { id: parseInt(id) } })
-  res.json({ message: 'Project deleted' })
+  await prisma.project.delete({ where: { id: parseInt(req.params.id) } })
+  res.json({ message: 'Deleted' })
 })
 
-// ---- INVENTORY ----
 app.get('/inventory', async (req, res) => {
   const items = await prisma.inventory.findMany()
   res.json(items)
@@ -81,18 +87,13 @@ app.get('/inventory', async (req, res) => {
 
 app.post('/inventory', async (req, res) => {
   const { name, quantity, unit, price } = req.body
-  const item = await prisma.inventory.create({
-    data: { name, quantity: parseInt(quantity), unit, price: parseFloat(price) }
-  })
+  const item = await prisma.inventory.create({ data: { name, quantity: parseInt(quantity), unit, price: parseFloat(price) } })
   res.json(item)
 })
 
 app.delete('/inventory/:id', async (req, res) => {
-  const { id } = req.params
-  await prisma.inventory.delete({ where: { id: parseInt(id) } })
-  res.json({ message: 'Item deleted' })
+  await prisma.inventory.delete({ where: { id: parseInt(req.params.id) } })
+  res.json({ message: 'Deleted' })
 })
 
-app.listen(5000, () => {
-  console.log('Server running on port 5000')
-})
+app.listen(5000, () => console.log('Server running on port 5000'))
