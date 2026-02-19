@@ -52,35 +52,82 @@ export default function App() {
   if (!user) return <Login onLogin={(name) => setUser(name)} />
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <div className="w-64 bg-gray-900 text-white flex flex-col">
-        <div className="p-6 border-b border-gray-700">
-          <h1 className="text-xl font-bold">Ndiwanjo Construction</h1>
-          <p className="text-gray-400 text-sm">Management System</p>
+    <div className="flex h-screen bg-zinc-950 text-white">
+      
+      {/* Sidebar */}
+      <div className="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+        
+        {/* Logo */}
+        <div className="p-6 border-b border-zinc-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center text-xl">
+              🏗️
+            </div>
+            <div>
+              <h1 className="text-sm font-bold text-white">Ndiwanjo Construction</h1>
+              <p className="text-xs text-zinc-500">Management System</p>
+            </div>
+          </div>
         </div>
-        <nav className="flex-1 p-4">
+
+        {/* Nav */}
+        <nav className="flex-1 p-4 space-y-1">
+          <p className="text-xs text-zinc-600 uppercase tracking-widest px-3 mb-3">Main Menu</p>
           {menuItems.map((item) => (
-            <button key={item.name} onClick={() => setActivePage(item.name)}
-              className={`w-full text-left px-4 py-3 rounded-lg mb-2 flex items-center gap-3 transition-colors ${
-                activePage === item.name ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
-              }`}>
-              <span>{item.icon}</span>
+            <button
+              key={item.name}
+              onClick={() => setActivePage(item.name)}
+              className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-all text-sm font-medium ${
+                activePage === item.name
+                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+              }`}
+            >
+              <span className="text-base">{item.icon}</span>
               <span>{item.name}</span>
+              {activePage === item.name && (
+                <span className="ml-auto w-1.5 h-1.5 bg-white rounded-full"></span>
+              )}
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-gray-700">
-          <p className="text-gray-400 text-sm mb-2">Logged in as {user}</p>
-          <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-red-400 hover:text-red-300 rounded-lg hover:bg-gray-700">
-            🚪 Logout
+
+        {/* User */}
+        <div className="p-4 border-t border-zinc-800">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-zinc-800 mb-2">
+            <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-sm font-bold">
+              {user?.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user}</p>
+              <p className="text-xs text-zinc-500">Administrator</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full text-left px-3 py-2 text-sm text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <span>🚪</span> Sign Out
           </button>
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-white shadow px-8 py-4">
-          <h2 className="text-2xl font-semibold text-gray-800">{activePage}</h2>
+        
+        {/* Header */}
+        <div className="bg-zinc-900 border-b border-zinc-800 px-8 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-white">{activePage}</h2>
+            <p className="text-xs text-zinc-500">Ndiwanjo Construction &rsaquo; {activePage}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="text-xs text-zinc-400">System Online</span>
+          </div>
         </div>
+
+        {/* Page */}
         <div className="flex-1 p-8 overflow-auto">
           {renderPage()}
         </div>
