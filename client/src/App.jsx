@@ -6,6 +6,7 @@ import Employees from './components/Employees'
 import Customers from './components/Customers'
 import Projects from './components/Projects'
 import Inventory from './components/Inventory'
+import Reports from './components/Reports'
 
 export default function App() {
   const [activePage, setActivePage] = useState('Dashboard')
@@ -38,6 +39,7 @@ export default function App() {
     { name: 'Projects', icon: '🏗️' },
     { name: 'Inventory', icon: '📦' },
     { name: 'Expenses', icon: '💰' },
+    { name: 'Reports', icon: '📈' },
   ]
 
   const renderPage = () => {
@@ -48,6 +50,7 @@ export default function App() {
       case 'Projects': return <Projects />
       case 'Inventory': return <Inventory />
       case 'Expenses': return <Expenses />
+      case 'Reports': return <Reports />
       default: return <Dashboard stats={stats} />
     }
   }
