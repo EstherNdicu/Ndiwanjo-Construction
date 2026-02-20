@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([])
+  const [search, setSearch] = useState('')
+  const [filterCategory, setFilterCategory] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ title: '', amount: '', category: '', projectName: '' })
@@ -12,6 +14,14 @@ export default function Expenses() {
     const res = await fetch('http://localhost:5000/expenses')
     setExpenses(await res.json())
   }
+
+  const filtered = expenses.filter(e => {
+    const matchesSearch =
+      e.title?.toLowerCase().includes(search.toLowerCase()) ||
+      e.projectName?.toLowerCase().includes(search.toLowerCase())
+    const matchesCategory = filterCategory === 'all' || e.category === filterCategory
+    return matchesSearch && matchesCategory
+  })
 
   const handleSubmit = async () => {
     if (editingId) {
@@ -59,7 +69,7 @@ export default function Expenses() {
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-xl font-bold text-white">Expenses</h3>
-          <p className="text-zinc-500 text-sm">{expenses.length} total records</p>
+          <p className="text-zinc-500 text-sm">{filtered.length} of {expenses.length} records</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
@@ -81,6 +91,33 @@ export default function Expenses() {
           <p className="text-zinc-500 text-sm">Paid</p>
           <p className="text-3xl font-bold text-green-400 mt-1">${paid.toLocaleString()}</p>
         </div>
+      </div>
+
+      {/* Search and Filter */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <span className="absolute left-4 top-3 text-zinc-500">🔍</span>
+          <input
+            placeholder="Search by title or project..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-600 rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+          {search && (
+            <button onClick={() => setSearch('')}
+              className="absolute right-4 top-3 text-zinc-500 hover:text-white">✕</button>
+          )}
+        </div>
+        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
+          className="bg-zinc-900 border border-zinc-800 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <option value="all">All Categories</option>
+          <option value="paid">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="materials">Materials</option>
+          <option value="labour">Labour</option>
+          <option value="equipment">Equipment</option>
+          <option value="other">Other</option>
+        </select>
       </div>
 
       {showForm && (
@@ -130,9 +167,11 @@ export default function Expenses() {
             </tr>
           </thead>
           <tbody>
-            {expenses.length === 0 ? (
-              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">No expenses yet. Add one above.</td></tr>
-            ) : expenses.map((e) => (
+            {filtered.length === 0 ? (
+              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">
+                {search ? `No results for "${search}"` : 'No expenses yet.'}
+              </td></tr>
+            ) : filtered.map((e) => (
               <tr key={e.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                 <td className="px-6 py-4 text-white font-medium">{e.title}</td>
                 <td className="px-6 py-4 text-orange-400 font-bold">${e.amount.toLocaleString()}</td>
@@ -140,6 +179,9 @@ export default function Expenses() {
                   <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                     e.category === 'paid' ? 'bg-green-500/20 text-green-400' :
                     e.category === 'pending' ? 'bg-red-500/20 text-red-400' :
+                    e.category === 'materials' ? 'bg-blue-500/20 text-blue-400' :
+                    e.category === 'labour' ? 'bg-purple-500/20 text-purple-400' :
+                    e.category === 'equipment' ? 'bg-yellow-500/20 text-yellow-400' :
                     'bg-zinc-700 text-zinc-400'
                   }`}>{e.category || 'uncategorized'}</span>
                 </td>
@@ -147,13 +189,9 @@ export default function Expenses() {
                 <td className="px-6 py-4 text-zinc-400">{new Date(e.createdAt).toLocaleDateString()}</td>
                 <td className="px-6 py-4 flex gap-3">
                   <button onClick={() => handleEdit(e)}
-                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">
-                    Edit
-                  </button>
+                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
                   <button onClick={() => handleDelete(e.id)}
-                    className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">
-                    Delete
-                  </button>
+                    className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">Delete</button>
                 </td>
               </tr>
             ))}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 
 export default function Customers() {
   const [customers, setCustomers] = useState([])
+  const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ name: '', email: '', phone: '', address: '' })
@@ -12,6 +13,13 @@ export default function Customers() {
     const res = await fetch('http://localhost:5000/customers')
     setCustomers(await res.json())
   }
+
+  const filtered = customers.filter(c =>
+    c.name?.toLowerCase().includes(search.toLowerCase()) ||
+    c.email?.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone?.toLowerCase().includes(search.toLowerCase()) ||
+    c.address?.toLowerCase().includes(search.toLowerCase())
+  )
 
   const handleSubmit = async () => {
     if (editingId) {
@@ -55,12 +63,27 @@ export default function Customers() {
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-xl font-bold text-white">Customers</h3>
-          <p className="text-zinc-500 text-sm">{customers.length} total customers</p>
+          <p className="text-zinc-500 text-sm">{filtered.length} of {customers.length} customers</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
           {showForm ? 'Cancel' : '+ Add Customer'}
         </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative">
+        <span className="absolute left-4 top-3 text-zinc-500">🔍</span>
+        <input
+          placeholder="Search by name, email, phone or address..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-600 rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500"
+        />
+        {search && (
+          <button onClick={() => setSearch('')}
+            className="absolute right-4 top-3 text-zinc-500 hover:text-white">✕</button>
+        )}
       </div>
 
       {showForm && (
@@ -98,9 +121,11 @@ export default function Customers() {
             </tr>
           </thead>
           <tbody>
-            {customers.length === 0 ? (
-              <tr><td colSpan="5" className="px-6 py-12 text-center text-zinc-600">No customers yet.</td></tr>
-            ) : customers.map((c) => (
+            {filtered.length === 0 ? (
+              <tr><td colSpan="5" className="px-6 py-12 text-center text-zinc-600">
+                {search ? `No results for "${search}"` : 'No customers yet.'}
+              </td></tr>
+            ) : filtered.map((c) => (
               <tr key={c.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
