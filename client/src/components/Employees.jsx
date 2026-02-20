@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 export default function Employees() {
   const [employees, setEmployees] = useState([])
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: '', department: '', salary: '' })
 
   useEffect(() => { fetchEmployees() }, [])
@@ -13,19 +14,40 @@ export default function Employees() {
   }
 
   const handleSubmit = async () => {
-    await fetch('http://localhost:5000/employees', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    })
+    if (editingId) {
+      await fetch(`http://localhost:5000/employees/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+      setEditingId(null)
+    } else {
+      await fetch('http://localhost:5000/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+    }
     setForm({ name: '', email: '', phone: '', role: '', department: '', salary: '' })
     setShowForm(false)
     fetchEmployees()
   }
 
+  const handleEdit = (emp) => {
+    setForm({ name: emp.name, email: emp.email, phone: emp.phone, role: emp.role, department: emp.department, salary: emp.salary })
+    setEditingId(emp.id)
+    setShowForm(true)
+  }
+
   const handleDelete = async (id) => {
     await fetch(`http://localhost:5000/employees/${id}`, { method: 'DELETE' })
     fetchEmployees()
+  }
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setForm({ name: '', email: '', phone: '', role: '', department: '', salary: '' })
   }
 
   return (
@@ -43,6 +65,9 @@ export default function Employees() {
 
       {showForm && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 grid grid-cols-2 gap-4">
+          <h4 className="col-span-2 text-white font-semibold">
+            {editingId ? 'Edit Employee' : 'Add New Employee'}
+          </h4>
           {['name', 'email', 'phone', 'role', 'department', 'salary'].map((field) => (
             <input key={field}
               placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
@@ -50,10 +75,14 @@ export default function Employees() {
               onChange={(e) => setForm({ ...form, [field]: e.target.value })}
               className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
           ))}
-          <div className="col-span-2">
+          <div className="col-span-2 flex gap-3">
             <button onClick={handleSubmit}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
-              Save Employee
+              {editingId ? 'Update Employee' : 'Save Employee'}
+            </button>
+            <button onClick={handleCancel}
+              className="bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
+              Cancel
             </button>
           </div>
         </div>
@@ -63,7 +92,7 @@ export default function Employees() {
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-zinc-800">
-              {['Name', 'Email', 'Phone', 'Role', 'Department', 'Salary', 'Action'].map((h) => (
+              {['Name', 'Email', 'Phone', 'Role', 'Department', 'Salary', 'Actions'].map((h) => (
                 <th key={h} className="px-6 py-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -88,7 +117,11 @@ export default function Employees() {
                 </td>
                 <td className="px-6 py-4 text-zinc-400">{emp.department}</td>
                 <td className="px-6 py-4 text-green-400 font-medium">${emp.salary}</td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 flex gap-3">
+                  <button onClick={() => handleEdit(emp)}
+                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">
+                    Edit
+                  </button>
                   <button onClick={() => handleDelete(emp.id)}
                     className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">
                     Delete

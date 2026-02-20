@@ -43,6 +43,15 @@ app.delete('/employees/:id', async (req, res) => {
   await prisma.employee.delete({ where: { id: parseInt(req.params.id) } })
   res.json({ message: 'Deleted' })
 })
+app.put('/employees/:id', async (req, res) => {
+  try {
+    const { name, email, phone, role, department, salary } = req.body
+    res.json(await prisma.employee.update({
+      where: { id: parseInt(req.params.id) },
+      data: { name, email, phone, role, department, salary: parseFloat(salary) }
+    }))
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
 
 // ---- CUSTOMERS ----
 app.get('/customers', async (req, res) => {
