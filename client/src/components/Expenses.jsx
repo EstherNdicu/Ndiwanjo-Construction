@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 export default function Expenses() {
   const [expenses, setExpenses] = useState([])
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ title: '', amount: '', category: '', projectName: '' })
 
   useEffect(() => { fetchExpenses() }, [])
@@ -13,19 +14,40 @@ export default function Expenses() {
   }
 
   const handleSubmit = async () => {
-    await fetch('http://localhost:5000/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    })
+    if (editingId) {
+      await fetch(`http://localhost:5000/expenses/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+      setEditingId(null)
+    } else {
+      await fetch('http://localhost:5000/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+    }
     setForm({ title: '', amount: '', category: '', projectName: '' })
     setShowForm(false)
     fetchExpenses()
   }
 
+  const handleEdit = (e) => {
+    setForm({ title: e.title, amount: e.amount, category: e.category, projectName: e.projectName })
+    setEditingId(e.id)
+    setShowForm(true)
+  }
+
   const handleDelete = async (id) => {
     await fetch(`http://localhost:5000/expenses/${id}`, { method: 'DELETE' })
     fetchExpenses()
+  }
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setForm({ title: '', amount: '', category: '', projectName: '' })
   }
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
@@ -63,6 +85,9 @@ export default function Expenses() {
 
       {showForm && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 grid grid-cols-2 gap-4">
+          <h4 className="col-span-2 text-white font-semibold">
+            {editingId ? 'Edit Expense' : 'Add New Expense'}
+          </h4>
           <input placeholder="Expense Title" value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
@@ -82,10 +107,14 @@ export default function Expenses() {
           <input placeholder="Project Name (optional)" value={form.projectName}
             onChange={(e) => setForm({ ...form, projectName: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <div className="col-span-2">
+          <div className="col-span-2 flex gap-3">
             <button onClick={handleSubmit}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
-              Save Expense
+              {editingId ? 'Update Expense' : 'Save Expense'}
+            </button>
+            <button onClick={handleCancel}
+              className="bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
+              Cancel
             </button>
           </div>
         </div>
@@ -95,7 +124,7 @@ export default function Expenses() {
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-zinc-800">
-              {['Title', 'Amount', 'Category', 'Project', 'Date', 'Action'].map((h) => (
+              {['Title', 'Amount', 'Category', 'Project', 'Date', 'Actions'].map((h) => (
                 <th key={h} className="px-6 py-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -116,7 +145,11 @@ export default function Expenses() {
                 </td>
                 <td className="px-6 py-4 text-zinc-400">{e.projectName || '-'}</td>
                 <td className="px-6 py-4 text-zinc-400">{new Date(e.createdAt).toLocaleDateString()}</td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 flex gap-3">
+                  <button onClick={() => handleEdit(e)}
+                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">
+                    Edit
+                  </button>
                   <button onClick={() => handleDelete(e.id)}
                     className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">
                     Delete
