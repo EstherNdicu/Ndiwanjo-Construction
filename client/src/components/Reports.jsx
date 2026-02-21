@@ -9,14 +9,44 @@ export default function Reports() {
   const [projects, setProjects] = useState([])
   const [inventory, setInventory] = useState([])
   const [expenses, setExpenses] = useState([])
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch('http://localhost:5000/employees').then(r => r.json()).then(setEmployees)
-    fetch('http://localhost:5000/customers').then(r => r.json()).then(setCustomers)
-    fetch('http://localhost:5000/projects').then(r => r.json()).then(setProjects)
-    fetch('http://localhost:5000/inventory').then(r => r.json()).then(setInventory)
-    fetch('http://localhost:5000/expenses').then(r => r.json()).then(setExpenses)
-  }, [])
+  useEffect(() => { fetchAll() }, [])
+
+  const safeFetch = async (url) => {
+    try {
+      const res = await fetch(url)
+      const data = await res.json()
+      return Array.isArray(data) ? data : []
+    } catch {
+      return []
+    }
+  }
+
+  const fetchAll = async () => {
+    try {
+      setLoading(true)
+      const [emp, cust, proj, inv, exp] = await Promise.all([
+        safeFetch('http://localhost:5000/employees'),
+        safeFetch('http://localhost:5000/customers'),
+        safeFetch('http://localhost:5000/projects'),
+        safeFetch('http://localhost:5000/inventory'),
+        safeFetch('http://localhost:5000/expenses'),
+      ])
+      setEmployees(emp)
+      setCustomers(cust)
+      setProjects(proj)
+      setInventory(inv)
+      setExpenses(exp)
+      setError(null)
+    } catch (err) {
+      console.error('Failed to fetch report data:', err)
+      setError('Could not connect to the server. Make sure your backend is running.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const exportPDF = (title, columns, rows) => {
     const doc = new jsPDF()
@@ -79,7 +109,7 @@ export default function Reports() {
       color: 'bg-purple-500',
       count: inventory.length,
       columns: ['Name', 'Quantity', 'Unit', 'Price', 'Total Value'],
-      rows: () => inventory.map(i => [i.name, i.quantity, i.unit, `$${i.price}`, `$${(i.quantity * i.price).toFixed(2)}`])
+      rows: () => inventory.map(i => [i.name, i.quantity, i.unit, `$${i.price}`, `$${(Number(i.quantity) * Number(i.price)).toFixed(2)}`])
     },
     {
       title: 'Expenses Report',
@@ -89,13 +119,13 @@ export default function Reports() {
       columns: ['Title', 'Amount', 'Category', 'Project', 'Date'],
       rows: () => expenses.map(e => [
         e.title, `$${e.amount}`, e.category, e.projectName || '-',
-        new Date(e.createdAt).toLocaleDateString()
+        e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '-'
       ])
     },
   ]
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
-  const pendingExpenses = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + e.amount, 0)
+  const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+  const pendingExpenses = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
   const exportFullPDF = () => {
     const doc = new jsPDF()
@@ -156,23 +186,31 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm flex justify-between items-center">
+          <span>⚠️ {error}</span>
+          <button onClick={fetchAll} className="underline hover:text-red-300">Retry</button>
+        </div>
+      )}
+
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Total Employees</p>
-          <p className="text-3xl font-bold text-white mt-1">{employees.length}</p>
+          <p className="text-3xl font-bold text-white mt-1">{loading ? '...' : employees.length}</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Total Projects</p>
-          <p className="text-3xl font-bold text-white mt-1">{projects.length}</p>
+          <p className="text-3xl font-bold text-white mt-1">{loading ? '...' : projects.length}</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Total Expenses</p>
-          <p className="text-3xl font-bold text-orange-400 mt-1">${totalExpenses.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-orange-400 mt-1">{loading ? '...' : `$${totalExpenses.toLocaleString()}`}</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Pending Payments</p>
-          <p className="text-3xl font-bold text-red-400 mt-1">${pendingExpenses.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-red-400 mt-1">{loading ? '...' : `$${pendingExpenses.toLocaleString()}`}</p>
         </div>
       </div>
 
@@ -186,18 +224,20 @@ export default function Reports() {
               </div>
               <div>
                 <h4 className="text-white font-semibold">{report.title}</h4>
-                <p className="text-zinc-500 text-sm">{report.count} records available</p>
+                <p className="text-zinc-500 text-sm">{loading ? 'Loading...' : `${report.count} records available`}</p>
               </div>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => exportPDF(report.title, report.columns, report.rows())}
-                className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/30 px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                disabled={loading}
+                className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/30 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 📄 PDF
               </button>
               <button
                 onClick={() => exportExcel(report.title, report.columns, report.rows())}
-                className="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white border border-green-600/30 px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                disabled={loading}
+                className="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white border border-green-600/30 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 📊 Excel
               </button>
             </div>

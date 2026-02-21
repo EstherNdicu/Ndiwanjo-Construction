@@ -10,16 +10,26 @@ export default function Dashboard({ stats }) {
   const [expenses, setExpenses] = useState([])
 
   useEffect(() => {
-    fetch('http://localhost:5000/projects').then(r => r.json()).then(setProjects)
-    fetch('http://localhost:5000/inventory').then(r => r.json()).then(setInventory)
-    fetch('http://localhost:5000/activities').then(r => r.json()).then(setActivities)
-    fetch('http://localhost:5000/expenses').then(r => r.json()).then(setExpenses)
+    fetch('http://localhost:5000/projects')
+      .then(r => r.json())
+      .then(data => Array.isArray(data) && setProjects(data))
+
+    fetch('http://localhost:5000/inventory')
+      .then(r => r.json())
+      .then(data => Array.isArray(data) && setInventory(data))
+
+    fetch('http://localhost:5000/activities')
+      .then(r => r.json())
+      .then(data => Array.isArray(data) && setActivities(data))
+
+    fetch('http://localhost:5000/expenses')
+      .then(r => r.json())
+      .then(data => Array.isArray(data) && setExpenses(data))
   }, [])
 
   // Financial summary
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
-  const pendingPayments = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + e.amount, 0)
-
+const totalExpenses = Array.isArray(expenses) ? expenses.reduce((sum, e) => sum + e.amount, 0) : 0
+const pendingPayments = Array.isArray(expenses) ? expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + e.amount, 0) : 0
   // Monthly expenses for bar chart
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const barData = monthNames.map((month, i) => ({

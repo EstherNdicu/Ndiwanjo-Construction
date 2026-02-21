@@ -7,12 +7,25 @@ export default function Expenses() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ title: '', amount: '', category: '', projectName: '' })
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => { fetchExpenses() }, [])
 
   const fetchExpenses = async () => {
-    const res = await fetch('http://localhost:5000/expenses')
-    setExpenses(await res.json())
+    try {
+      setLoading(true)
+      const res = await fetch('http://localhost:5000/expenses')
+      const data = await res.json()
+      setExpenses(Array.isArray(data) ? data : [])
+      setError(null)
+    } catch (err) {
+      console.error('Failed to fetch expenses:', err)
+      setExpenses([])
+      setError('Could not connect to the server. Make sure your backend is running.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filtered = expenses.filter(e => {
@@ -24,23 +37,30 @@ export default function Expenses() {
   })
 
   const handleSubmit = async () => {
-    if (editingId) {
-      await fetch(`http://localhost:5000/expenses/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      })
-      setEditingId(null)
-    } else {
-      await fetch('http://localhost:5000/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      })
+    if (!form.title.trim()) return alert('Expense title is required.')
+    if (!form.amount) return alert('Amount is required.')
+    try {
+      if (editingId) {
+        await fetch(`http://localhost:5000/expenses/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        })
+        setEditingId(null)
+      } else {
+        await fetch('http://localhost:5000/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        })
+      }
+      setForm({ title: '', amount: '', category: '', projectName: '' })
+      setShowForm(false)
+      fetchExpenses()
+    } catch (err) {
+      console.error('Failed to save expense:', err)
+      alert('Failed to save expense. Check your server.')
     }
-    setForm({ title: '', amount: '', category: '', projectName: '' })
-    setShowForm(false)
-    fetchExpenses()
   }
 
   const handleEdit = (e) => {
@@ -50,8 +70,14 @@ export default function Expenses() {
   }
 
   const handleDelete = async (id) => {
-    await fetch(`http://localhost:5000/expenses/${id}`, { method: 'DELETE' })
-    fetchExpenses()
+    if (!window.confirm('Are you sure you want to delete this expense?')) return
+    try {
+      await fetch(`http://localhost:5000/expenses/${id}`, { method: 'DELETE' })
+      fetchExpenses()
+    } catch (err) {
+      console.error('Failed to delete expense:', err)
+      alert('Failed to delete expense. Check your server.')
+    }
   }
 
   const handleCancel = () => {
@@ -60,9 +86,9 @@ export default function Expenses() {
     setForm({ title: '', amount: '', category: '', projectName: '' })
   }
 
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0)
-  const pending = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + e.amount, 0)
-  const paid = expenses.filter(e => e.category === 'paid').reduce((sum, e) => sum + e.amount, 0)
+  const total = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+  const pending = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+  const paid = expenses.filter(e => e.category === 'paid').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -76,6 +102,14 @@ export default function Expenses() {
           {showForm ? 'Cancel' : '+ Add Expense'}
         </button>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm flex justify-between items-center">
+          <span>⚠️ {error}</span>
+          <button onClick={fetchExpenses} className="underline hover:text-red-300">Retry</button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
@@ -167,14 +201,16 @@ export default function Expenses() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
+              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">Loading expenses...</td></tr>
+            ) : filtered.length === 0 ? (
               <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">
                 {search ? `No results for "${search}"` : 'No expenses yet.'}
               </td></tr>
             ) : filtered.map((e) => (
               <tr key={e.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                 <td className="px-6 py-4 text-white font-medium">{e.title}</td>
-                <td className="px-6 py-4 text-orange-400 font-bold">${e.amount.toLocaleString()}</td>
+                <td className="px-6 py-4 text-orange-400 font-bold">${Number(e.amount).toLocaleString()}</td>
                 <td className="px-6 py-4">
                   <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                     e.category === 'paid' ? 'bg-green-500/20 text-green-400' :
@@ -186,7 +222,7 @@ export default function Expenses() {
                   }`}>{e.category || 'uncategorized'}</span>
                 </td>
                 <td className="px-6 py-4 text-zinc-400">{e.projectName || '-'}</td>
-                <td className="px-6 py-4 text-zinc-400">{new Date(e.createdAt).toLocaleDateString()}</td>
+                <td className="px-6 py-4 text-zinc-400">{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '-'}</td>
                 <td className="px-6 py-4 flex gap-3">
                   <button onClick={() => handleEdit(e)}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>

@@ -7,12 +7,25 @@ export default function Projects() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => { fetchProjects() }, [])
 
   const fetchProjects = async () => {
-    const res = await fetch('http://localhost:5000/projects')
-    setProjects(await res.json())
+    try {
+      setLoading(true)
+      const res = await fetch('http://localhost:5000/projects')
+      const data = await res.json()
+      setProjects(Array.isArray(data) ? data : [])
+      setError(null)
+    } catch (err) {
+      console.error('Failed to fetch projects:', err)
+      setProjects([])
+      setError('Could not connect to the server. Make sure your backend is running.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filtered = projects.filter(p => {
@@ -24,23 +37,29 @@ export default function Projects() {
   })
 
   const handleSubmit = async () => {
-    if (editingId) {
-      await fetch(`http://localhost:5000/projects/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      })
-      setEditingId(null)
-    } else {
-      await fetch('http://localhost:5000/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      })
+    if (!form.name.trim()) return alert('Project name is required.')
+    try {
+      if (editingId) {
+        await fetch(`http://localhost:5000/projects/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        })
+        setEditingId(null)
+      } else {
+        await fetch('http://localhost:5000/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        })
+      }
+      setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+      setShowForm(false)
+      fetchProjects()
+    } catch (err) {
+      console.error('Failed to save project:', err)
+      alert('Failed to save project. Check your server.')
     }
-    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
-    setShowForm(false)
-    fetchProjects()
   }
 
   const handleEdit = (p) => {
@@ -54,8 +73,14 @@ export default function Projects() {
   }
 
   const handleDelete = async (id) => {
-    await fetch(`http://localhost:5000/projects/${id}`, { method: 'DELETE' })
-    fetchProjects()
+    if (!window.confirm('Are you sure you want to delete this project?')) return
+    try {
+      await fetch(`http://localhost:5000/projects/${id}`, { method: 'DELETE' })
+      fetchProjects()
+    } catch (err) {
+      console.error('Failed to delete project:', err)
+      alert('Failed to delete project. Check your server.')
+    }
   }
 
   const handleCancel = () => {
@@ -76,6 +101,14 @@ export default function Projects() {
           {showForm ? 'Cancel' : '+ Add Project'}
         </button>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm flex justify-between items-center">
+          <span>⚠️ {error}</span>
+          <button onClick={fetchProjects} className="underline hover:text-red-300">Retry</button>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="flex gap-3">
@@ -147,7 +180,9 @@ export default function Projects() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
+              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">Loading projects...</td></tr>
+            ) : filtered.length === 0 ? (
               <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">
                 {search ? `No results for "${search}"` : 'No projects yet.'}
               </td></tr>

@@ -10,16 +10,21 @@ export default function Employees() {
   useEffect(() => { fetchEmployees() }, [])
 
   const fetchEmployees = async () => {
-    const res = await fetch('http://localhost:5000/employees')
-    setEmployees(await res.json())
+    try {
+      const res = await fetch('http://localhost:5000/employees')
+      const data = await res.json()
+      setEmployees(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setEmployees([])
+    }
   }
 
-  const filtered = employees.filter(emp =>
+  const filtered = Array.isArray(employees) ? employees.filter(emp =>
     emp.name?.toLowerCase().includes(search.toLowerCase()) ||
     emp.email?.toLowerCase().includes(search.toLowerCase()) ||
     emp.role?.toLowerCase().includes(search.toLowerCase()) ||
     emp.department?.toLowerCase().includes(search.toLowerCase())
-  )
+  ) : []
 
   const handleSubmit = async () => {
     if (editingId) {
@@ -71,7 +76,6 @@ export default function Employees() {
         </button>
       </div>
 
-      {/* Search Bar */}
       <div className="relative">
         <span className="absolute left-4 top-3 text-zinc-500">🔍</span>
         <input

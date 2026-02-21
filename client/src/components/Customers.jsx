@@ -6,12 +6,25 @@ export default function Customers() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ name: '', email: '', phone: '', address: '' })
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => { fetchCustomers() }, [])
 
   const fetchCustomers = async () => {
-    const res = await fetch('http://localhost:5000/customers')
-    setCustomers(await res.json())
+    try {
+      setLoading(true)
+      const res = await fetch('http://localhost:5000/customers')
+      const data = await res.json()
+      setCustomers(Array.isArray(data) ? data : [])
+      setError(null)
+    } catch (err) {
+      console.error('Failed to fetch customers:', err)
+      setCustomers([])
+      setError('Could not connect to the server. Make sure your backend is running.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filtered = customers.filter(c =>
@@ -22,23 +35,29 @@ export default function Customers() {
   )
 
   const handleSubmit = async () => {
-    if (editingId) {
-      await fetch(`http://localhost:5000/customers/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      })
-      setEditingId(null)
-    } else {
-      await fetch('http://localhost:5000/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      })
+    if (!form.name.trim()) return alert('Name is required.')
+    try {
+      if (editingId) {
+        await fetch(`http://localhost:5000/customers/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        })
+        setEditingId(null)
+      } else {
+        await fetch('http://localhost:5000/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form)
+        })
+      }
+      setForm({ name: '', email: '', phone: '', address: '' })
+      setShowForm(false)
+      fetchCustomers()
+    } catch (err) {
+      console.error('Failed to save customer:', err)
+      alert('Failed to save customer. Check your server.')
     }
-    setForm({ name: '', email: '', phone: '', address: '' })
-    setShowForm(false)
-    fetchCustomers()
   }
 
   const handleEdit = (c) => {
@@ -48,8 +67,14 @@ export default function Customers() {
   }
 
   const handleDelete = async (id) => {
-    await fetch(`http://localhost:5000/customers/${id}`, { method: 'DELETE' })
-    fetchCustomers()
+    if (!window.confirm('Are you sure you want to delete this customer?')) return
+    try {
+      await fetch(`http://localhost:5000/customers/${id}`, { method: 'DELETE' })
+      fetchCustomers()
+    } catch (err) {
+      console.error('Failed to delete customer:', err)
+      alert('Failed to delete customer. Check your server.')
+    }
   }
 
   const handleCancel = () => {
@@ -70,6 +95,14 @@ export default function Customers() {
           {showForm ? 'Cancel' : '+ Add Customer'}
         </button>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm flex justify-between items-center">
+          <span>⚠️ {error}</span>
+          <button onClick={fetchCustomers} className="underline hover:text-red-300">Retry</button>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="relative">
@@ -121,7 +154,9 @@ export default function Customers() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
+              <tr><td colSpan="5" className="px-6 py-12 text-center text-zinc-600">Loading customers...</td></tr>
+            ) : filtered.length === 0 ? (
               <tr><td colSpan="5" className="px-6 py-12 text-center text-zinc-600">
                 {search ? `No results for "${search}"` : 'No customers yet.'}
               </td></tr>
