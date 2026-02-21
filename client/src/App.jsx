@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import Expenses from './components/Expenses'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import Employees from './components/Employees'
 import Customers from './components/Customers'
 import Projects from './components/Projects'
 import Inventory from './components/Inventory'
+import Expenses from './components/Expenses'
 import Reports from './components/Reports'
 
 export default function App() {
@@ -59,11 +59,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-zinc-950 text-white">
-      
-      {/* Sidebar */}
       <div className="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col">
-        
-        {/* Logo */}
         <div className="p-6 border-b border-zinc-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center text-xl">
@@ -76,7 +72,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 p-4 space-y-1">
           <p className="text-xs text-zinc-600 uppercase tracking-widest px-3 mb-3">Main Menu</p>
           {menuItems.map((item) => (
@@ -98,7 +93,6 @@ export default function App() {
           ))}
         </nav>
 
-        {/* User */}
         <div className="p-4 border-t border-zinc-800">
           <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-zinc-800 mb-2">
             <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-sm font-bold">
@@ -118,22 +112,17 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        
-        {/* Header */}
         <div className="bg-zinc-900 border-b border-zinc-800 px-8 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-white">{activePage}</h2>
-            <p className="text-xs text-zinc-500">Ndiwanjo Construction &rsaquo; {activePage}</p>
+            <p className="text-xs text-zinc-500">Ndiwanjo Construction › {activePage}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             <span className="text-xs text-zinc-400">System Online</span>
           </div>
         </div>
-
-        {/* Page */}
         <div className="flex-1 p-8 overflow-auto">
           {renderPage()}
         </div>
