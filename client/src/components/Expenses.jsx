@@ -115,15 +115,15 @@ export default function Expenses() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Total Expenses</p>
-          <p className="text-3xl font-bold text-white mt-1">${total.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-white mt-1">KSh {total.toLocaleString()}</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Pending Payments</p>
-          <p className="text-3xl font-bold text-red-400 mt-1">${pending.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-red-400 mt-1">KSh {pending.toLocaleString()}</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Paid</p>
-          <p className="text-3xl font-bold text-green-400 mt-1">${paid.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-green-400 mt-1">KSh {paid.toLocaleString()}</p>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export default function Expenses() {
           <input placeholder="Expense Title" value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <input placeholder="Amount" type="number" value={form.amount}
+          <input placeholder="Amount (KSh)" type="number" value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
           <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -210,7 +210,7 @@ export default function Expenses() {
             ) : filtered.map((e) => (
               <tr key={e.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
                 <td className="px-6 py-4 text-white font-medium">{e.title}</td>
-                <td className="px-6 py-4 text-orange-400 font-bold">${Number(e.amount).toLocaleString()}</td>
+                <td className="px-6 py-4 text-orange-400 font-bold">KSh {Number(e.amount).toLocaleString()}</td>
                 <td className="px-6 py-4">
                   <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                     e.category === 'paid' ? 'bg-green-500/20 text-green-400' :

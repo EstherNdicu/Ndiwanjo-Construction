@@ -122,9 +122,14 @@ export default function Inventory() {
           <h4 className="col-span-2 text-white font-semibold">
             {editingId ? 'Edit Item' : 'Add New Item'}
           </h4>
-          {['name', 'quantity', 'unit', 'price'].map((field) => (
+          {[
+            { field: 'name', label: 'Name' },
+            { field: 'quantity', label: 'Quantity' },
+            { field: 'unit', label: 'Unit' },
+            { field: 'price', label: 'Price (KSh)' },
+          ].map(({ field, label }) => (
             <input key={field}
-              placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+              placeholder={label}
               type={['quantity', 'price'].includes(field) ? 'number' : 'text'}
               value={form[field]}
               onChange={(e) => setForm({ ...form, [field]: e.target.value })}
@@ -173,8 +178,8 @@ export default function Inventory() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-zinc-400">{item.unit}</td>
-                <td className="px-6 py-4 text-zinc-400">${Number(item.price).toLocaleString()}</td>
-                <td className="px-6 py-4 text-green-400 font-medium">${(Number(item.quantity) * Number(item.price)).toFixed(2)}</td>
+                <td className="px-6 py-4 text-zinc-400">KSh {Number(item.price).toLocaleString()}</td>
+                <td className="px-6 py-4 text-green-400 font-medium">KSh {(Number(item.quantity) * Number(item.price)).toLocaleString()}</td>
                 <td className="px-6 py-4 flex gap-3">
                   <button onClick={() => handleEdit(item)}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
