@@ -35,10 +35,12 @@ model Project {
   status      String             @default("pending")
   startDate   DateTime?
   endDate     DateTime?
+  quotation   Float?
   createdAt   DateTime           @default(now())
   employees   ProjectEmployee[]
   expenses    Expense[]
   inventory   ProjectInventory[]
+  payments    Payment[]
 }
 
 model ProjectEmployee {
@@ -70,6 +72,15 @@ model ProjectInventory {
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, inventoryId])
+}
+
+model Payment {
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  amount      Float
+  note        String?
+  receivedAt  DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model User {

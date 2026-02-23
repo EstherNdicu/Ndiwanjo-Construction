@@ -7,7 +7,7 @@ export default function Projects() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+  const [form, setForm] = useState({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedProjectId, setSelectedProjectId] = useState(null)
@@ -22,7 +22,6 @@ export default function Projects() {
       setProjects(Array.isArray(data) ? data : [])
       setError(null)
     } catch (err) {
-      console.error('Failed to fetch projects:', err)
       setProjects([])
       setError('Could not connect to the server. Make sure your backend is running.')
     } finally {
@@ -55,11 +54,10 @@ export default function Projects() {
           body: JSON.stringify(form)
         })
       }
-      setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+      setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '' })
       setShowForm(false)
       fetchProjects()
     } catch (err) {
-      console.error('Failed to save project:', err)
       alert('Failed to save project. Check your server.')
     }
   }
@@ -69,7 +67,8 @@ export default function Projects() {
     setForm({
       name: p.name, description: p.description, status: p.status,
       startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
-      endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : ''
+      endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
+      quotation: p.quotation || ''
     })
     setEditingId(p.id)
     setShowForm(true)
@@ -82,7 +81,6 @@ export default function Projects() {
       await fetch(`http://localhost:5000/projects/${id}`, { method: 'DELETE' })
       fetchProjects()
     } catch (err) {
-      console.error('Failed to delete project:', err)
       alert('Failed to delete project. Check your server.')
     }
   }
@@ -90,10 +88,9 @@ export default function Projects() {
   const handleCancel = () => {
     setShowForm(false)
     setEditingId(null)
-    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '' })
   }
 
-  // Show project detail page
   if (selectedProjectId) {
     return (
       <ProjectDetail
@@ -116,7 +113,6 @@ export default function Projects() {
         </button>
       </div>
 
-      {/* Error Banner */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm flex justify-between items-center">
           <span>⚠️ {error}</span>
@@ -124,7 +120,6 @@ export default function Projects() {
         </div>
       )}
 
-      {/* Search and Filter */}
       <div className="flex gap-3">
         <div className="relative flex-1">
           <span className="absolute left-4 top-3 text-zinc-500">🔍</span>
@@ -159,6 +154,9 @@ export default function Projects() {
           <input placeholder="Description" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          <input placeholder="Initial Quotation (KSh)" type="number" value={form.quotation}
+            onChange={(e) => setForm({ ...form, quotation: e.target.value })}
+            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
             <option value="pending">Pending</option>
@@ -184,57 +182,82 @@ export default function Projects() {
         </div>
       )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-zinc-800">
-              {['Name', 'Description', 'Status', 'Start Date', 'End Date', 'Actions'].map((h) => (
-                <th key={h} className="px-6 py-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">Loading projects...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">
-                {search ? `No results for "${search}"` : 'No projects yet.'}
-              </td></tr>
-            ) : filtered.map((p) => (
-              <tr key={p.id}
-                onClick={() => setSelectedProjectId(p.id)}
-                className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors cursor-pointer">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 text-sm">🏗️</div>
-                    <div>
-                      <span className="text-white font-medium">{p.name}</span>
-                      <p className="text-zinc-500 text-xs">Click to view details</p>
-                    </div>
+      {/* Project Cards */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-6 py-12 text-center text-zinc-600">Loading projects...</div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-6 py-12 text-center text-zinc-600">
+            {search ? `No results for "${search}"` : 'No projects yet.'}
+          </div>
+        ) : filtered.map((p) => {
+          const totalEarned = (p.payments || []).reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0)
+          const totalSpent = (p.expenses || []).reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)
+          const profit = totalEarned - totalSpent
+          const isProfit = profit >= 0
+
+          return (
+            <div key={p.id}
+              onClick={() => setSelectedProjectId(p.id)}
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:bg-zinc-800/50 transition-colors cursor-pointer">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 text-lg">🏗️</div>
+                  <div>
+                    <h4 className="text-white font-semibold">{p.name}</h4>
+                    <p className="text-zinc-500 text-xs">{p.description || 'No description'}</p>
                   </div>
-                </td>
-                <td className="px-6 py-4 text-zinc-400">{p.description}</td>
-                <td className="px-6 py-4">
+                </div>
+                <div className="flex items-center gap-3">
                   <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                     p.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                     p.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
                     'bg-yellow-500/20 text-yellow-400'
                   }`}>{p.status}</span>
-                </td>
-                <td className="px-6 py-4 text-zinc-400">{p.startDate ? new Date(p.startDate).toLocaleDateString() : '-'}</td>
-                <td className="px-6 py-4 text-zinc-400">{p.endDate ? new Date(p.endDate).toLocaleDateString() : '-'}</td>
-                <td className="px-6 py-4">
-                  <div className="flex gap-3">
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                     <button onClick={(e) => handleEdit(e, p)}
                       className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
                     <button onClick={(e) => handleDelete(e, p.id)}
                       className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">Delete</button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+
+              {/* Financial Summary */}
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-zinc-800/50 rounded-lg p-3">
+                  <p className="text-zinc-500 text-xs mb-1">Quotation</p>
+                  <p className="text-white font-semibold text-sm">
+                    {p.quotation ? `KSh ${Number(p.quotation).toLocaleString()}` : '-'}
+                  </p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg p-3">
+                  <p className="text-zinc-500 text-xs mb-1">Earned</p>
+                  <p className="text-green-400 font-semibold text-sm">KSh {totalEarned.toLocaleString()}</p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg p-3">
+                  <p className="text-zinc-500 text-xs mb-1">Spent</p>
+                  <p className="text-orange-400 font-semibold text-sm">KSh {totalSpent.toLocaleString()}</p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg p-3">
+                  <p className="text-zinc-500 text-xs mb-1">Profit / Loss</p>
+                  <p className={`font-semibold text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                    {isProfit ? '+' : ''}KSh {profit.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-3">
+                <p className="text-zinc-600 text-xs">
+                  📅 {p.startDate ? new Date(p.startDate).toLocaleDateString() : 'No start'} →{' '}
+                  {p.endDate ? new Date(p.endDate).toLocaleDateString() : 'No end'}
+                </p>
+                <p className="text-zinc-600 text-xs">👷 {(p.employees || []).length} employees</p>
+                <p className="text-zinc-600 text-xs">💰 {(p.payments || []).length} payments</p>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

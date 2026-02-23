@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 
 export default function ProjectDetail({ projectId, onBack }) {
   const [project, setProject] = useState(null)
-  const [activeTab, setActiveTab] = useState('employees')
+  const [activeTab, setActiveTab] = useState('financials')
   const [allEmployees, setAllEmployees] = useState([])
   const [allInventory, setAllInventory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -10,10 +10,12 @@ export default function ProjectDetail({ projectId, onBack }) {
   const [showEmployeeForm, setShowEmployeeForm] = useState(false)
   const [showInventoryForm, setShowInventoryForm] = useState(false)
   const [showExpenseForm, setShowExpenseForm] = useState(false)
+  const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [selectedInventoryId, setSelectedInventoryId] = useState('')
   const [inventoryQuantity, setInventoryQuantity] = useState('')
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: '' })
+  const [paymentForm, setPaymentForm] = useState({ amount: '', note: '', receivedAt: '' })
 
   useEffect(() => {
     fetchProject()
@@ -55,13 +57,10 @@ export default function ProjectDetail({ projectId, onBack }) {
     if (!selectedEmployeeId) return alert('Please select an employee.')
     try {
       await fetch(`http://localhost:5000/projects/${projectId}/employees`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employeeId: selectedEmployeeId })
       })
-      setSelectedEmployeeId('')
-      setShowEmployeeForm(false)
-      fetchProject()
+      setSelectedEmployeeId(''); setShowEmployeeForm(false); fetchProject()
     } catch { alert('Failed to assign employee.') }
   }
 
@@ -78,14 +77,10 @@ export default function ProjectDetail({ projectId, onBack }) {
     if (!inventoryQuantity) return alert('Please enter a quantity.')
     try {
       await fetch(`http://localhost:5000/projects/${projectId}/inventory`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventoryId: selectedInventoryId, quantity: inventoryQuantity })
       })
-      setSelectedInventoryId('')
-      setInventoryQuantity('')
-      setShowInventoryForm(false)
-      fetchProject()
+      setSelectedInventoryId(''); setInventoryQuantity(''); setShowInventoryForm(false); fetchProject()
     } catch { alert('Failed to add inventory.') }
   }
 
@@ -102,13 +97,10 @@ export default function ProjectDetail({ projectId, onBack }) {
     if (!expenseForm.amount) return alert('Amount is required.')
     try {
       await fetch(`http://localhost:5000/projects/${projectId}/expenses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(expenseForm)
       })
-      setExpenseForm({ title: '', amount: '', category: '' })
-      setShowExpenseForm(false)
-      fetchProject()
+      setExpenseForm({ title: '', amount: '', category: '' }); setShowExpenseForm(false); fetchProject()
     } catch { alert('Failed to add expense.') }
   }
 
@@ -120,18 +112,35 @@ export default function ProjectDetail({ projectId, onBack }) {
     } catch { alert('Failed to delete expense.') }
   }
 
+  const addPayment = async () => {
+    if (!paymentForm.amount) return alert('Amount is required.')
+    try {
+      await fetch(`http://localhost:5000/projects/${projectId}/payments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentForm)
+      })
+      setPaymentForm({ amount: '', note: '', receivedAt: '' }); setShowPaymentForm(false); fetchProject()
+    } catch { alert('Failed to add payment.') }
+  }
+
+  const removePayment = async (paymentId) => {
+    if (!window.confirm('Delete this payment?')) return
+    try {
+      await fetch(`http://localhost:5000/projects/${projectId}/payments/${paymentId}`, { method: 'DELETE' })
+      fetchProject()
+    } catch { alert('Failed to delete payment.') }
+  }
+
   const assignedEmployeeIds = project?.employees?.map(e => e.employeeId) || []
   const availableEmployees = allEmployees.filter(e => !assignedEmployeeIds.includes(e.id))
   const assignedInventoryIds = project?.inventory?.map(i => i.inventoryId) || []
   const availableInventory = allInventory.filter(i => !assignedInventoryIds.includes(i.id))
   const totalExpenses = project?.expenses?.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0
+  const totalEarned = project?.payments?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0
+  const profit = totalEarned - totalExpenses
+  const isProfit = profit >= 0
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-24">
-      <p className="text-zinc-500">Loading project...</p>
-    </div>
-  )
-
+  if (loading) return <div className="flex items-center justify-center py-24"><p className="text-zinc-500">Loading project...</p></div>
   if (error) return (
     <div className="space-y-4">
       <button onClick={onBack} className="text-zinc-400 hover:text-white text-sm">← Back to Projects</button>
@@ -139,8 +148,17 @@ export default function ProjectDetail({ projectId, onBack }) {
     </div>
   )
 
+  const tabs = ['financials', 'employees', 'inventory', 'expenses']
+  const tabCounts = {
+    financials: project.payments?.length || 0,
+    employees: project.employees?.length || 0,
+    inventory: project.inventory?.length || 0,
+    expenses: project.expenses?.length || 0,
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <button onClick={onBack} className="text-zinc-400 hover:text-white text-sm mb-4 flex items-center gap-1">
           ← Back to Projects
@@ -158,32 +176,130 @@ export default function ProjectDetail({ projectId, onBack }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      {/* Financial Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Employees</p>
-          <p className="text-3xl font-bold text-white mt-1">{project.employees?.length || 0}</p>
+          <p className="text-zinc-500 text-sm">Quotation</p>
+          <p className="text-2xl font-bold text-white mt-1">
+            {project.quotation ? `KSh ${Number(project.quotation).toLocaleString()}` : '—'}
+          </p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Inventory Items</p>
-          <p className="text-3xl font-bold text-white mt-1">{project.inventory?.length || 0}</p>
+          <p className="text-zinc-500 text-sm">Total Earned</p>
+          <p className="text-2xl font-bold text-green-400 mt-1">KSh {totalEarned.toLocaleString()}</p>
+          {project.quotation && (
+            <p className="text-xs text-zinc-600 mt-1">
+              {Math.round((totalEarned / Number(project.quotation)) * 100)}% of quote
+            </p>
+          )}
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Total Expenses</p>
-          <p className="text-3xl font-bold text-orange-400 mt-1">KSh {totalExpenses.toLocaleString()}</p>
+          <p className="text-zinc-500 text-sm">Total Spent</p>
+          <p className="text-2xl font-bold text-orange-400 mt-1">KSh {totalExpenses.toLocaleString()}</p>
+        </div>
+        <div className={`border rounded-xl p-5 ${isProfit ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+          <p className="text-zinc-500 text-sm">Net Profit / Loss</p>
+          <p className={`text-2xl font-bold mt-1 ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+            {isProfit ? '+' : ''}KSh {profit.toLocaleString()}
+          </p>
+          <p className={`text-xs mt-1 ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
+            {isProfit ? '✓ In profit' : '✗ In loss'}
+          </p>
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-2 border-b border-zinc-800">
-        {['employees', 'inventory', 'expenses'].map(tab => (
+        {tabs.map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-5 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
               activeTab === tab ? 'border-orange-500 text-orange-400' : 'border-transparent text-zinc-500 hover:text-white'
             }`}>
-            {tab} ({tab === 'employees' ? project.employees?.length : tab === 'inventory' ? project.inventory?.length : project.expenses?.length})
+            {tab} ({tabCounts[tab]})
           </button>
         ))}
       </div>
 
+      {/* FINANCIALS TAB */}
+      {activeTab === 'financials' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-zinc-400 text-sm">{project.payments?.length || 0} payments — Total: KSh {totalEarned.toLocaleString()}</p>
+            <button onClick={() => setShowPaymentForm(!showPaymentForm)}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+              + Record Payment
+            </button>
+          </div>
+
+          {showPaymentForm && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 grid grid-cols-3 gap-3">
+              <input placeholder="Amount Received (KSh)" type="number" value={paymentForm.amount}
+                onChange={e => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+              <input placeholder="Note (optional)" value={paymentForm.note}
+                onChange={e => setPaymentForm({ ...paymentForm, note: e.target.value })}
+                className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+              <input type="date" value={paymentForm.receivedAt}
+                onChange={e => setPaymentForm({ ...paymentForm, receivedAt: e.target.value })}
+                className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+              <div className="col-span-3 flex gap-3">
+                <button onClick={addPayment} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium">Save Payment</button>
+                <button onClick={() => setShowPaymentForm(false)} className="bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+            {!project.payments?.length ? (
+              <div className="px-6 py-12 text-center text-zinc-600">No payments recorded yet. Click "Record Payment" to add one.</div>
+            ) : project.payments.map((payment) => (
+              <div key={payment.id} className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 hover:bg-zinc-800/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 text-sm">💰</div>
+                  <div>
+                    <p className="text-white font-medium">{payment.note || 'Payment received'}</p>
+                    <p className="text-zinc-500 text-xs">{payment.receivedAt ? new Date(payment.receivedAt).toLocaleDateString() : '-'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <p className="text-green-400 font-bold text-lg">KSh {Number(payment.amount).toLocaleString()}</p>
+                  <button onClick={() => removePayment(payment.id)} className="text-red-500 hover:text-red-400 text-sm font-medium">Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Running balance */}
+          {project.payments?.length > 0 && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex justify-between items-center">
+              <div className="flex gap-8">
+                <div>
+                  <p className="text-zinc-500 text-xs">Total Received</p>
+                  <p className="text-green-400 font-bold">KSh {totalEarned.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-zinc-500 text-xs">Total Spent</p>
+                  <p className="text-orange-400 font-bold">KSh {totalExpenses.toLocaleString()}</p>
+                </div>
+                {project.quotation && (
+                  <div>
+                    <p className="text-zinc-500 text-xs">Outstanding</p>
+                    <p className="text-white font-bold">KSh {(Number(project.quotation) - totalEarned).toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+              <div className={`text-right px-4 py-2 rounded-lg ${isProfit ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                <p className="text-zinc-500 text-xs">Net</p>
+                <p className={`font-bold ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
+                  {isProfit ? '+' : ''}KSh {profit.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* EMPLOYEES TAB */}
       {activeTab === 'employees' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
@@ -226,6 +342,7 @@ export default function ProjectDetail({ projectId, onBack }) {
         </div>
       )}
 
+      {/* INVENTORY TAB */}
       {activeTab === 'inventory' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
@@ -271,6 +388,7 @@ export default function ProjectDetail({ projectId, onBack }) {
         </div>
       )}
 
+      {/* EXPENSES TAB */}
       {activeTab === 'expenses' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
