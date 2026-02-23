@@ -27,14 +27,31 @@ export default function Dashboard({ stats }) {
       .then(data => Array.isArray(data) && setExpenses(data))
   }, [])
 
-  // Financial summary
-const totalExpenses = Array.isArray(expenses) ? expenses.reduce((sum, e) => sum + e.amount, 0) : 0
-const pendingPayments = Array.isArray(expenses) ? expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + e.amount, 0) : 0
+  // ✅ FIX 1: Total expenses from expenses table (was correct, just wrong currency symbol)
+  const totalExpenses = Array.isArray(expenses)
+    ? expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+    : 0
+
+  // ✅ FIX 2: Pending payments = sum of (quotation - totalEarned) across all active projects
+  // This gives the real outstanding amount owed across all projects
+  const pendingPayments = Array.isArray(projects)
+    ? projects.reduce((sum, p) => {
+        const quotation = Number(p.quotation) || 0
+        const earned = Array.isArray(p.payments)
+          ? p.payments.reduce((s, pay) => s + (Number(pay.amount) || 0), 0)
+          : 0
+        const outstanding = quotation - earned
+        return sum + (outstanding > 0 ? outstanding : 0)
+      }, 0)
+    : 0
+
   // Monthly expenses for bar chart
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const barData = monthNames.map((month, i) => ({
     month,
-    amount: expenses.filter(e => new Date(e.createdAt).getMonth() === i).reduce((sum, e) => sum + e.amount, 0)
+    amount: expenses
+      .filter(e => new Date(e.createdAt).getMonth() === i)
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
   }))
 
   // Task summary pie chart
@@ -148,24 +165,27 @@ const pendingPayments = Array.isArray(expenses) ? expenses.filter(e => e.categor
           </div>
         </div>
 
-        {/* Financial Summary */}
+        {/* ✅ FIX 3: Financial Summary — $ replaced with KSh throughout */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-2">Financial Summary</h3>
           <div className="flex justify-between mb-4">
             <div>
               <p className="text-xs text-zinc-500">Total Expenses</p>
-              <p className="text-2xl font-bold text-white">${totalExpenses.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-white">KSh {totalExpenses.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-xs text-zinc-500">Pending Payments</p>
-              <p className="text-2xl font-bold text-white">${pendingPayments.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-orange-400">KSh {pendingPayments.toLocaleString()}</p>
             </div>
           </div>
           <p className="text-xs text-zinc-500 mb-2">Monthly Expenses</p>
           <ResponsiveContainer width="100%" height={120}>
             <BarChart data={barData}>
               <XAxis dataKey="month" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none', borderRadius: '8px', color: '#fff' }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#18181b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                formatter={(value) => [`KSh ${Number(value).toLocaleString()}`, 'Expenses']}
+              />
               <Bar dataKey="amount" fill="#f97316" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

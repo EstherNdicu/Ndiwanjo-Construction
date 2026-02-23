@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import InvoiceGenerator from './InvoiceGenerator'
+
 
 export default function ProjectDetail({ projectId, onBack }) {
   const [project, setProject] = useState(null)
@@ -16,6 +18,7 @@ export default function ProjectDetail({ projectId, onBack }) {
   const [inventoryQuantity, setInventoryQuantity] = useState('')
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: '' })
   const [paymentForm, setPaymentForm] = useState({ amount: '', note: '', receivedAt: '' })
+  const [showInvoice, setShowInvoice] = useState(false)
 
   useEffect(() => {
     fetchProject()
@@ -163,16 +166,24 @@ export default function ProjectDetail({ projectId, onBack }) {
         <button onClick={onBack} className="text-zinc-400 hover:text-white text-sm mb-4 flex items-center gap-1">
           ← Back to Projects
         </button>
+        {/* ✅ ADDITION 1: Generate Invoice button added to header */}
         <div className="flex justify-between items-start">
           <div>
             <h3 className="text-xl font-bold text-white">{project.name}</h3>
             <p className="text-zinc-500 text-sm mt-1">{project.description || 'No description'}</p>
           </div>
-          <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-            project.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-            project.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
-            'bg-yellow-500/20 text-yellow-400'
-          }`}>{project.status}</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowInvoice(true)}
+              className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+              🧾 Generate Invoice
+            </button>
+            <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+              project.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+              project.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
+              'bg-yellow-500/20 text-yellow-400'
+            }`}>{project.status}</span>
+          </div>
         </div>
       </div>
 
@@ -445,6 +456,14 @@ export default function ProjectDetail({ projectId, onBack }) {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ✅ ADDITION 2: Invoice Generator modal */}
+      {showInvoice && (
+        <InvoiceGenerator
+          project={project}
+          onClose={() => setShowInvoice(false)}
+        />
       )}
     </div>
   )
