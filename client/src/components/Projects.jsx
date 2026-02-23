@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import ProjectDetail from './ProjectDetail'
 
 export default function Projects() {
   const [projects, setProjects] = useState([])
@@ -9,6 +10,7 @@ export default function Projects() {
   const [form, setForm] = useState({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [selectedProjectId, setSelectedProjectId] = useState(null)
 
   useEffect(() => { fetchProjects() }, [])
 
@@ -62,7 +64,8 @@ export default function Projects() {
     }
   }
 
-  const handleEdit = (p) => {
+  const handleEdit = (e, p) => {
+    e.stopPropagation()
     setForm({
       name: p.name, description: p.description, status: p.status,
       startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
@@ -72,7 +75,8 @@ export default function Projects() {
     setShowForm(true)
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (e, id) => {
+    e.stopPropagation()
     if (!window.confirm('Are you sure you want to delete this project?')) return
     try {
       await fetch(`http://localhost:5000/projects/${id}`, { method: 'DELETE' })
@@ -87,6 +91,16 @@ export default function Projects() {
     setShowForm(false)
     setEditingId(null)
     setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+  }
+
+  // Show project detail page
+  if (selectedProjectId) {
+    return (
+      <ProjectDetail
+        projectId={selectedProjectId}
+        onBack={() => { setSelectedProjectId(null); fetchProjects() }}
+      />
+    )
   }
 
   return (
@@ -187,11 +201,16 @@ export default function Projects() {
                 {search ? `No results for "${search}"` : 'No projects yet.'}
               </td></tr>
             ) : filtered.map((p) => (
-              <tr key={p.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
+              <tr key={p.id}
+                onClick={() => setSelectedProjectId(p.id)}
+                className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors cursor-pointer">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 text-sm">🏗️</div>
-                    <span className="text-white font-medium">{p.name}</span>
+                    <div>
+                      <span className="text-white font-medium">{p.name}</span>
+                      <p className="text-zinc-500 text-xs">Click to view details</p>
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-zinc-400">{p.description}</td>
@@ -204,11 +223,13 @@ export default function Projects() {
                 </td>
                 <td className="px-6 py-4 text-zinc-400">{p.startDate ? new Date(p.startDate).toLocaleDateString() : '-'}</td>
                 <td className="px-6 py-4 text-zinc-400">{p.endDate ? new Date(p.endDate).toLocaleDateString() : '-'}</td>
-                <td className="px-6 py-4 flex gap-3">
-                  <button onClick={() => handleEdit(p)}
-                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
-                  <button onClick={() => handleDelete(p.id)}
-                    className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">Delete</button>
+                <td className="px-6 py-4">
+                  <div className="flex gap-3">
+                    <button onClick={(e) => handleEdit(e, p)}
+                      className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
+                    <button onClick={(e) => handleDelete(e, p.id)}
+                      className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}

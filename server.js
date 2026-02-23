@@ -122,6 +122,87 @@ app.delete('/projects/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+// ---- PROJECT DETAIL (employees, expenses, inventory for a project) ----
+app.get('/projects/:id/detail', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: {
+        employees: { include: { employee: true } },
+        expenses: true,
+        inventory: { include: { inventory: true } }
+      }
+    })
+    if (!project) return res.status(404).json({ message: 'Project not found' })
+    res.json(project)
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// Assign employee to project
+app.post('/projects/:id/employees', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.id)
+    const { employeeId } = req.body
+    const link = await prisma.projectEmployee.create({
+      data: { projectId, employeeId: parseInt(employeeId) }
+    })
+    res.json(link)
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// Remove employee from project
+app.delete('/projects/:id/employees/:employeeId', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.id)
+    const employeeId = parseInt(req.params.employeeId)
+    await prisma.projectEmployee.deleteMany({ where: { projectId, employeeId } })
+    res.json({ message: 'Employee removed from project' })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// Add inventory to project
+app.post('/projects/:id/inventory', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.id)
+    const { inventoryId, quantity } = req.body
+    const link = await prisma.projectInventory.create({
+      data: { projectId, inventoryId: parseInt(inventoryId), quantity: parseInt(quantity) || 0 }
+    })
+    res.json(link)
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// Remove inventory from project
+app.delete('/projects/:id/inventory/:inventoryId', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.id)
+    const inventoryId = parseInt(req.params.inventoryId)
+    await prisma.projectInventory.deleteMany({ where: { projectId, inventoryId } })
+    res.json({ message: 'Inventory removed from project' })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// Add expense to project
+app.post('/projects/:id/expenses', async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.id)
+    const { title, amount, category } = req.body
+    const expense = await prisma.expense.create({
+      data: { title, amount: parseFloat(amount), category, projectId }
+    })
+    res.json(expense)
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// Remove expense from project
+app.delete('/projects/:id/expenses/:expenseId', async (req, res) => {
+  try {
+    await prisma.expense.delete({ where: { id: parseInt(req.params.expenseId) } })
+    res.json({ message: 'Expense deleted' })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
 // ---- INVENTORY ----
 app.get('/inventory', async (req, res) => {
   try { res.json(await prisma.inventory.findMany({ orderBy: { createdAt: 'desc' } })) }
