@@ -3,21 +3,28 @@ import ProjectDetail from './ProjectDetail'
 
 export default function Projects() {
   const [projects, setProjects] = useState([])
+  const [customers, setCustomers] = useState([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '' })
+  const [form, setForm] = useState({
+    name: '', description: '', status: 'pending',
+    startDate: '', endDate: '', quotation: '', customerId: ''
+  })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedProjectId, setSelectedProjectId] = useState(null)
 
-  useEffect(() => { fetchProjects() }, [])
+  useEffect(() => {
+    fetchProjects()
+    fetchCustomers()
+  }, [])
 
   const fetchProjects = async () => {
     try {
       setLoading(true)
-      const res = await fetch('http://localhost:5000/projects')
+      const res = await fetch(`http://localhost:5000/projects?t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       setProjects(Array.isArray(data) ? data : [])
       setError(null)
@@ -27,6 +34,14 @@ export default function Projects() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/customers?t=${Date.now()}`, { cache: 'no-store' })
+      const data = await res.json()
+      setCustomers(Array.isArray(data) ? data : [])
+    } catch {}
   }
 
   const filtered = projects.filter(p => {
@@ -54,7 +69,7 @@ export default function Projects() {
           body: JSON.stringify(form)
         })
       }
-      setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '' })
+      setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '', customerId: '' })
       setShowForm(false)
       fetchProjects()
     } catch (err) {
@@ -65,10 +80,13 @@ export default function Projects() {
   const handleEdit = (e, p) => {
     e.stopPropagation()
     setForm({
-      name: p.name, description: p.description, status: p.status,
+      name: p.name,
+      description: p.description || '',
+      status: p.status,
       startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
       endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
-      quotation: p.quotation || ''
+      quotation: p.quotation || '',
+      customerId: p.customerId || ''
     })
     setEditingId(p.id)
     setShowForm(true)
@@ -88,7 +106,7 @@ export default function Projects() {
   const handleCancel = () => {
     setShowForm(false)
     setEditingId(null)
-    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '' })
+    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '', customerId: '' })
   }
 
   if (selectedProjectId) {
@@ -148,27 +166,43 @@ export default function Projects() {
           <h4 className="col-span-2 text-white font-semibold">
             {editingId ? 'Edit Project' : 'Add New Project'}
           </h4>
-          <input placeholder="Project Name" value={form.name}
+
+          <input placeholder="Project Name *" value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+
           <input placeholder="Description" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <input placeholder="Initial Quotation (KSh)" type="number" value={form.quotation}
+
+          <input placeholder="Quotation (KSh)" type="number" value={form.quotation}
             onChange={(e) => setForm({ ...form, quotation: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
             <option value="pending">Pending</option>
             <option value="active">Active</option>
             <option value="completed">Completed</option>
           </select>
-          <input type="date" value={form.startDate}
+
+          {/* ✅ Customer dropdown */}
+          <select value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}
+            className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="">No Customer Assigned</option>
+            {customers.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+
+          <input type="date" placeholder="Start Date" value={form.startDate}
             onChange={(e) => setForm({ ...form, startDate: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <input type="date" value={form.endDate}
+
+          <input type="date" placeholder="End Date" value={form.endDate}
             onChange={(e) => setForm({ ...form, endDate: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+
           <div className="col-span-2 flex gap-3">
             <button onClick={handleSubmit}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
@@ -206,6 +240,10 @@ export default function Projects() {
                   <div>
                     <h4 className="text-white font-semibold">{p.name}</h4>
                     <p className="text-zinc-500 text-xs">{p.description || 'No description'}</p>
+                    {/* ✅ Show linked customer name */}
+                    {p.customer && (
+                      <p className="text-orange-400 text-xs mt-0.5">👤 {p.customer.name}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

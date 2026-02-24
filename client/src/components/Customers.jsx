@@ -19,7 +19,7 @@ export default function Customers() {
   const fetchCustomers = async () => {
     try {
       setLoading(true)
-      const res = await fetch('http://localhost:5000/customers')
+      const res = await fetch(`http://localhost:5000/customers?t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       setCustomers(Array.isArray(data) ? data : [])
       setError(null)
@@ -33,7 +33,7 @@ export default function Customers() {
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch('http://localhost:5000/projects')
+      const res = await fetch(`http://localhost:5000/projects?t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       setProjects(Array.isArray(data) ? data : [])
     } catch {}
