@@ -27,13 +27,12 @@ export default function Dashboard({ stats }) {
       .then(data => Array.isArray(data) && setExpenses(data))
   }, [])
 
-  // ✅ FIX 1: Total expenses from expenses table (was correct, just wrong currency symbol)
+  // Financial summary
   const totalExpenses = Array.isArray(expenses)
     ? expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
     : 0
 
-  // ✅ FIX 2: Pending payments = sum of (quotation - totalEarned) across all active projects
-  // This gives the real outstanding amount owed across all projects
+  // Pending payments = outstanding balance across all projects
   const pendingPayments = Array.isArray(projects)
     ? projects.reduce((sum, p) => {
         const quotation = Number(p.quotation) || 0
@@ -64,15 +63,18 @@ export default function Dashboard({ stats }) {
     { name: 'Pending', value: pending || 0 },
   ]
 
-  const getProgress = (status) => {
-    if (status === 'completed') return 100
-    if (status === 'active') return 65
-    return 20
+  // ✅ Use real progress from DB instead of hardcoded values
+  const getProgress = (p) => {
+    if (p.progress !== undefined && p.progress !== null) return Number(p.progress)
+    if (p.status === 'completed') return 100
+    if (p.status === 'active') return 50
+    return 0
   }
 
-  const getStatusColor = (status) => {
-    if (status === 'completed') return 'bg-green-500'
-    if (status === 'active') return 'bg-orange-500'
+  const getProgressColor = (progress) => {
+    if (progress === 100) return 'bg-green-500'
+    if (progress >= 60) return 'bg-blue-500'
+    if (progress >= 30) return 'bg-orange-500'
     return 'bg-yellow-500'
   }
 
@@ -114,30 +116,35 @@ export default function Dashboard({ stats }) {
       {/* Middle Row */}
       <div className="grid grid-cols-3 gap-4">
 
-        {/* Project Overview */}
+        {/* ✅ Project Overview — now uses real progress */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-4">Project Overview</h3>
           {projects.length === 0 ? (
             <p className="text-zinc-600 text-sm">No projects yet.</p>
           ) : (
             <div className="space-y-4">
-              {projects.slice(0, 3).map((p) => (
-                <div key={p.id}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm text-white font-medium truncate">{p.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ml-2 whitespace-nowrap ${
-                      p.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                      p.status === 'active' ? 'bg-orange-500/20 text-orange-400' :
-                      'bg-yellow-500/20 text-yellow-400'
-                    }`}>{p.status}</span>
+              {projects.slice(0, 3).map((p) => {
+                const progress = getProgress(p)
+                return (
+                  <div key={p.id}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-white font-medium truncate">{p.name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ml-2 whitespace-nowrap ${
+                        p.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                        p.status === 'active' ? 'bg-orange-500/20 text-orange-400' :
+                        'bg-yellow-500/20 text-yellow-400'
+                      }`}>{p.status}</span>
+                    </div>
+                    <div className="w-full bg-zinc-700 rounded-full h-2">
+                      <div
+                        className={`${getProgressColor(progress)} h-2 rounded-full transition-all duration-500`}
+                        style={{ width: `${progress}%` }}>
+                      </div>
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-1">{progress}% complete</p>
                   </div>
-                  <div className="w-full bg-zinc-700 rounded-full h-2">
-                    <div className={`${getStatusColor(p.status)} h-2 rounded-full`}
-                      style={{ width: `${getProgress(p.status)}%` }}></div>
-                  </div>
-                  <p className="text-xs text-zinc-500 mt-1">{getProgress(p.status)}% complete</p>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -165,7 +172,7 @@ export default function Dashboard({ stats }) {
           </div>
         </div>
 
-        {/* ✅ FIX 3: Financial Summary — $ replaced with KSh throughout */}
+        {/* Financial Summary */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <h3 className="text-white font-semibold mb-2">Financial Summary</h3>
           <div className="flex justify-between mb-4">
@@ -228,9 +235,7 @@ export default function Dashboard({ stats }) {
             <div className="space-y-3">
               {inventory.slice(0, 4).map((item) => (
                 <div key={item.id} className="flex items-center gap-3 py-2 border-b border-zinc-800">
-                  <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-xl">
-                    📦
-                  </div>
+                  <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-xl">📦</div>
                   <div className="flex-1">
                     <p className="text-sm text-white font-medium">{item.name}</p>
                     <p className="text-xs text-zinc-500">{item.unit || 'units'}</p>

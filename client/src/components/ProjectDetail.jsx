@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import InvoiceGenerator from './InvoiceGenerator'
 
-
 export default function ProjectDetail({ projectId, onBack }) {
   const [project, setProject] = useState(null)
   const [activeTab, setActiveTab] = useState('financials')
@@ -19,6 +18,8 @@ export default function ProjectDetail({ projectId, onBack }) {
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: '' })
   const [paymentForm, setPaymentForm] = useState({ amount: '', note: '', receivedAt: '' })
   const [showInvoice, setShowInvoice] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [savingProgress, setSavingProgress] = useState(false)
 
   useEffect(() => {
     fetchProject()
@@ -32,6 +33,7 @@ export default function ProjectDetail({ projectId, onBack }) {
       const res = await fetch(`http://localhost:5000/projects/${projectId}/detail`)
       const data = await res.json()
       setProject(data)
+      setProgress(data.progress || 0)
       setError(null)
     } catch (err) {
       setError('Failed to load project details.')
@@ -54,6 +56,22 @@ export default function ProjectDetail({ projectId, onBack }) {
       const data = await res.json()
       setAllInventory(Array.isArray(data) ? data : [])
     } catch {}
+  }
+
+  const saveProgress = async () => {
+    try {
+      setSavingProgress(true)
+      await fetch(`http://localhost:5000/projects/${projectId}/progress`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progress }),
+      })
+      fetchProject()
+    } catch {
+      alert('Failed to update progress.')
+    } finally {
+      setSavingProgress(false)
+    }
   }
 
   const assignEmployee = async () => {
@@ -142,6 +160,7 @@ export default function ProjectDetail({ projectId, onBack }) {
   const totalEarned = project?.payments?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0
   const profit = totalEarned - totalExpenses
   const isProfit = profit >= 0
+  const progressColor = progress === 100 ? 'bg-green-500' : progress >= 60 ? 'bg-blue-500' : progress >= 30 ? 'bg-orange-500' : 'bg-yellow-500'
 
   if (loading) return <div className="flex items-center justify-center py-24"><p className="text-zinc-500">Loading project...</p></div>
   if (error) return (
@@ -166,15 +185,13 @@ export default function ProjectDetail({ projectId, onBack }) {
         <button onClick={onBack} className="text-zinc-400 hover:text-white text-sm mb-4 flex items-center gap-1">
           ← Back to Projects
         </button>
-        {/* ✅ ADDITION 1: Generate Invoice button added to header */}
         <div className="flex justify-between items-start">
           <div>
             <h3 className="text-xl font-bold text-white">{project.name}</h3>
             <p className="text-zinc-500 text-sm mt-1">{project.description || 'No description'}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowInvoice(true)}
+            <button onClick={() => setShowInvoice(true)}
               className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               🧾 Generate Invoice
             </button>
@@ -184,6 +201,39 @@ export default function ProjectDetail({ projectId, onBack }) {
               'bg-yellow-500/20 text-yellow-400'
             }`}>{project.status}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Progress Tracker */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-white font-semibold">Project Progress</p>
+            <p className="text-zinc-500 text-xs mt-0.5">Drag the slider to update completion %</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`text-2xl font-bold ${progress === 100 ? 'text-green-400' : 'text-white'}`}>
+              {progress}%
+            </span>
+            {progress !== (project.progress || 0) && (
+              <button onClick={saveProgress} disabled={savingProgress}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+                {savingProgress ? 'Saving...' : 'Save'}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="w-full bg-zinc-700 rounded-full h-3 mb-3">
+          <div className={`${progressColor} h-3 rounded-full transition-all duration-300`}
+            style={{ width: `${progress}%` }}></div>
+        </div>
+        <input type="range" min="0" max="100" step="5"
+          value={progress}
+          onChange={e => setProgress(Number(e.target.value))}
+          className="w-full accent-orange-500 cursor-pointer"
+        />
+        <div className="flex justify-between text-xs text-zinc-600 mt-1">
+          <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
         </div>
       </div>
 
@@ -241,7 +291,6 @@ export default function ProjectDetail({ projectId, onBack }) {
               + Record Payment
             </button>
           </div>
-
           {showPaymentForm && (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 grid grid-cols-3 gap-3">
               <input placeholder="Amount Received (KSh)" type="number" value={paymentForm.amount}
@@ -259,7 +308,6 @@ export default function ProjectDetail({ projectId, onBack }) {
               </div>
             </div>
           )}
-
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
             {!project.payments?.length ? (
               <div className="px-6 py-12 text-center text-zinc-600">No payments recorded yet. Click "Record Payment" to add one.</div>
@@ -279,8 +327,6 @@ export default function ProjectDetail({ projectId, onBack }) {
               </div>
             ))}
           </div>
-
-          {/* Running balance */}
           {project.payments?.length > 0 && (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex justify-between items-center">
               <div className="flex gap-8">
@@ -458,12 +504,9 @@ export default function ProjectDetail({ projectId, onBack }) {
         </div>
       )}
 
-      {/* ✅ ADDITION 2: Invoice Generator modal */}
+      {/* Invoice Generator Modal */}
       {showInvoice && (
-        <InvoiceGenerator
-          project={project}
-          onClose={() => setShowInvoice(false)}
-        />
+        <InvoiceGenerator project={project} onClose={() => setShowInvoice(false)} />
       )}
     </div>
   )

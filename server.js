@@ -10,19 +10,25 @@ app.use(cors())
 app.use(express.json())
 
 // ─────────────────────────────────────────────
+// HELPER: Log activity automatically
+// ─────────────────────────────────────────────
+const logActivity = async (description, bold = '') => {
+  try {
+    await prisma.activity.create({ data: { description, bold } })
+  } catch (err) {
+    console.error('Activity log failed:', err.message)
+  }
+}
+
+// ─────────────────────────────────────────────
 // PROJECTS
 // ─────────────────────────────────────────────
 
-// GET all projects (with payments + expenses for financial summary)
 app.get('/projects', async (req, res) => {
   try {
     const projects = await prisma.project.findMany({
       orderBy: { createdAt: 'desc' },
-      include: {
-        payments: true,
-        expenses: true,
-        employees: true,
-      },
+      include: { payments: true, expenses: true, employees: true },
     })
     res.json(projects)
   } catch (err) {
@@ -31,7 +37,6 @@ app.get('/projects', async (req, res) => {
   }
 })
 
-// GET single project detail (full data for ProjectDetail.jsx)
 app.get('/projects/:id/detail', async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
@@ -39,12 +44,8 @@ app.get('/projects/:id/detail', async (req, res) => {
       include: {
         payments: { orderBy: { receivedAt: 'desc' } },
         expenses: { orderBy: { createdAt: 'desc' } },
-        employees: {
-          include: { employee: true },
-        },
-        inventory: {
-          include: { inventory: true },
-        },
+        employees: { include: { employee: true } },
+        inventory: { include: { inventory: true } },
       },
     })
     if (!project) return res.status(404).json({ error: 'Project not found' })
@@ -55,10 +56,9 @@ app.get('/projects/:id/detail', async (req, res) => {
   }
 })
 
-// POST create project
 app.post('/projects', async (req, res) => {
   try {
-    const { name, description, status, startDate, endDate, quotation } = req.body
+    const { name, description, status, startDate, endDate, quotation, progress } = req.body
     const project = await prisma.project.create({
       data: {
         name,
@@ -67,8 +67,10 @@ app.post('/projects', async (req, res) => {
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         quotation: quotation ? Number(quotation) : null,
+        progress: progress ? Number(progress) : 0,
       },
     })
+    await logActivity('New project created:', name)
     res.status(201).json(project)
   } catch (err) {
     console.error(err)
@@ -76,10 +78,9 @@ app.post('/projects', async (req, res) => {
   }
 })
 
-// PUT update project
 app.put('/projects/:id', async (req, res) => {
   try {
-    const { name, description, status, startDate, endDate, quotation } = req.body
+    const { name, description, status, startDate, endDate, quotation, progress } = req.body
     const project = await prisma.project.update({
       where: { id: Number(req.params.id) },
       data: {
@@ -89,8 +90,10 @@ app.put('/projects/:id', async (req, res) => {
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         quotation: quotation ? Number(quotation) : null,
+        progress: progress !== undefined ? Number(progress) : undefined,
       },
     })
+    await logActivity('Project updated:', name)
     res.json(project)
   } catch (err) {
     console.error(err)
@@ -98,10 +101,27 @@ app.put('/projects/:id', async (req, res) => {
   }
 })
 
-// DELETE project
+// ✅ PATCH just the progress field
+app.patch('/projects/:id/progress', async (req, res) => {
+  try {
+    const { progress } = req.body
+    const project = await prisma.project.update({
+      where: { id: Number(req.params.id) },
+      data: { progress: Number(progress) },
+    })
+    await logActivity(`Project progress updated to ${progress}%:`, project.name)
+    res.json(project)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to update progress' })
+  }
+})
+
 app.delete('/projects/:id', async (req, res) => {
   try {
+    const project = await prisma.project.findUnique({ where: { id: Number(req.params.id) } })
     await prisma.project.delete({ where: { id: Number(req.params.id) } })
+    await logActivity('Project deleted:', project?.name || 'Unknown')
     res.json({ message: 'Project deleted' })
   } catch (err) {
     console.error(err)
@@ -110,15 +130,14 @@ app.delete('/projects/:id', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────
-// PAYMENTS  ← THIS WAS YOUR MISSING ROUTE
+// PAYMENTS
 // ─────────────────────────────────────────────
 
-// POST record a payment
 app.post('/projects/:id/payments', async (req, res) => {
   try {
     const { amount, note, receivedAt } = req.body
     if (!amount) return res.status(400).json({ error: 'Amount is required' })
-
+    const project = await prisma.project.findUnique({ where: { id: Number(req.params.id) } })
     const payment = await prisma.payment.create({
       data: {
         projectId: Number(req.params.id),
@@ -127,6 +146,7 @@ app.post('/projects/:id/payments', async (req, res) => {
         receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
       },
     })
+    await logActivity(`Payment of KSh ${Number(amount).toLocaleString()} recorded for`, project?.name || 'project')
     res.status(201).json(payment)
   } catch (err) {
     console.error(err)
@@ -134,7 +154,6 @@ app.post('/projects/:id/payments', async (req, res) => {
   }
 })
 
-// DELETE a payment
 app.delete('/projects/:id/payments/:paymentId', async (req, res) => {
   try {
     await prisma.payment.delete({ where: { id: Number(req.params.paymentId) } })
@@ -149,13 +168,12 @@ app.delete('/projects/:id/payments/:paymentId', async (req, res) => {
 // EXPENSES
 // ─────────────────────────────────────────────
 
-// POST add expense
 app.post('/projects/:id/expenses', async (req, res) => {
   try {
     const { title, amount, category } = req.body
     if (!title) return res.status(400).json({ error: 'Title is required' })
     if (!amount) return res.status(400).json({ error: 'Amount is required' })
-
+    const project = await prisma.project.findUnique({ where: { id: Number(req.params.id) } })
     const expense = await prisma.expense.create({
       data: {
         projectId: Number(req.params.id),
@@ -164,6 +182,7 @@ app.post('/projects/:id/expenses', async (req, res) => {
         category: category || null,
       },
     })
+    await logActivity(`Expense "${title}" of KSh ${Number(amount).toLocaleString()} added to`, project?.name || 'project')
     res.status(201).json(expense)
   } catch (err) {
     console.error(err)
@@ -171,7 +190,6 @@ app.post('/projects/:id/expenses', async (req, res) => {
   }
 })
 
-// DELETE an expense
 app.delete('/projects/:id/expenses/:expenseId', async (req, res) => {
   try {
     await prisma.expense.delete({ where: { id: Number(req.params.expenseId) } })
@@ -186,16 +204,15 @@ app.delete('/projects/:id/expenses/:expenseId', async (req, res) => {
 // PROJECT EMPLOYEES
 // ─────────────────────────────────────────────
 
-// POST assign employee to project
 app.post('/projects/:id/employees', async (req, res) => {
   try {
     const { employeeId } = req.body
+    const project = await prisma.project.findUnique({ where: { id: Number(req.params.id) } })
+    const employee = await prisma.employee.findUnique({ where: { id: Number(employeeId) } })
     const assignment = await prisma.projectEmployee.create({
-      data: {
-        projectId: Number(req.params.id),
-        employeeId: Number(employeeId),
-      },
+      data: { projectId: Number(req.params.id), employeeId: Number(employeeId) },
     })
+    await logActivity(`${employee?.name || 'Employee'} assigned to`, project?.name || 'project')
     res.status(201).json(assignment)
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'Employee already assigned' })
@@ -204,15 +221,14 @@ app.post('/projects/:id/employees', async (req, res) => {
   }
 })
 
-// DELETE remove employee from project
 app.delete('/projects/:id/employees/:employeeId', async (req, res) => {
   try {
+    const employee = await prisma.employee.findUnique({ where: { id: Number(req.params.employeeId) } })
+    const project = await prisma.project.findUnique({ where: { id: Number(req.params.id) } })
     await prisma.projectEmployee.deleteMany({
-      where: {
-        projectId: Number(req.params.id),
-        employeeId: Number(req.params.employeeId),
-      },
+      where: { projectId: Number(req.params.id), employeeId: Number(req.params.employeeId) },
     })
+    await logActivity(`${employee?.name || 'Employee'} removed from`, project?.name || 'project')
     res.json({ message: 'Employee removed from project' })
   } catch (err) {
     console.error(err)
@@ -224,17 +240,15 @@ app.delete('/projects/:id/employees/:employeeId', async (req, res) => {
 // PROJECT INVENTORY
 // ─────────────────────────────────────────────
 
-// POST add inventory to project
 app.post('/projects/:id/inventory', async (req, res) => {
   try {
     const { inventoryId, quantity } = req.body
+    const project = await prisma.project.findUnique({ where: { id: Number(req.params.id) } })
+    const inventoryItem = await prisma.inventory.findUnique({ where: { id: Number(inventoryId) } })
     const item = await prisma.projectInventory.create({
-      data: {
-        projectId: Number(req.params.id),
-        inventoryId: Number(inventoryId),
-        quantity: Number(quantity),
-      },
+      data: { projectId: Number(req.params.id), inventoryId: Number(inventoryId), quantity: Number(quantity) },
     })
+    await logActivity(`${inventoryItem?.name || 'Item'} (x${quantity}) added to`, project?.name || 'project')
     res.status(201).json(item)
   } catch (err) {
     if (err.code === 'P2002') return res.status(409).json({ error: 'Inventory item already added' })
@@ -243,14 +257,10 @@ app.post('/projects/:id/inventory', async (req, res) => {
   }
 })
 
-// DELETE remove inventory from project
 app.delete('/projects/:id/inventory/:inventoryId', async (req, res) => {
   try {
     await prisma.projectInventory.deleteMany({
-      where: {
-        projectId: Number(req.params.id),
-        inventoryId: Number(req.params.inventoryId),
-      },
+      where: { projectId: Number(req.params.id), inventoryId: Number(req.params.inventoryId) },
     })
     res.json({ message: 'Inventory removed from project' })
   } catch (err) {
@@ -263,7 +273,6 @@ app.delete('/projects/:id/inventory/:inventoryId', async (req, res) => {
 // EMPLOYEES
 // ─────────────────────────────────────────────
 
-// GET all employees
 app.get('/employees', async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({ orderBy: { name: 'asc' } })
@@ -274,13 +283,13 @@ app.get('/employees', async (req, res) => {
   }
 })
 
-// POST create employee
 app.post('/employees', async (req, res) => {
   try {
     const { name, email, phone, role, department, salary } = req.body
     const employee = await prisma.employee.create({
       data: { name, email, phone, role, department, salary: salary ? Number(salary) : null },
     })
+    await logActivity('New employee added:', name)
     res.status(201).json(employee)
   } catch (err) {
     console.error(err)
@@ -288,7 +297,6 @@ app.post('/employees', async (req, res) => {
   }
 })
 
-// PUT update employee
 app.put('/employees/:id', async (req, res) => {
   try {
     const { name, email, phone, role, department, salary } = req.body
@@ -296,6 +304,7 @@ app.put('/employees/:id', async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { name, email, phone, role, department, salary: salary ? Number(salary) : null },
     })
+    await logActivity('Employee updated:', name)
     res.json(employee)
   } catch (err) {
     console.error(err)
@@ -303,10 +312,11 @@ app.put('/employees/:id', async (req, res) => {
   }
 })
 
-// DELETE employee
 app.delete('/employees/:id', async (req, res) => {
   try {
+    const employee = await prisma.employee.findUnique({ where: { id: Number(req.params.id) } })
     await prisma.employee.delete({ where: { id: Number(req.params.id) } })
+    await logActivity('Employee removed:', employee?.name || 'Unknown')
     res.json({ message: 'Employee deleted' })
   } catch (err) {
     console.error(err)
@@ -318,7 +328,6 @@ app.delete('/employees/:id', async (req, res) => {
 // INVENTORY
 // ─────────────────────────────────────────────
 
-// GET all inventory
 app.get('/inventory', async (req, res) => {
   try {
     const items = await prisma.inventory.findMany({ orderBy: { name: 'asc' } })
@@ -329,13 +338,13 @@ app.get('/inventory', async (req, res) => {
   }
 })
 
-// POST create inventory item
 app.post('/inventory', async (req, res) => {
   try {
     const { name, quantity, unit, price } = req.body
     const item = await prisma.inventory.create({
       data: { name, quantity: Number(quantity), unit, price: price ? Number(price) : null },
     })
+    await logActivity('Inventory item added:', name)
     res.status(201).json(item)
   } catch (err) {
     console.error(err)
@@ -343,7 +352,6 @@ app.post('/inventory', async (req, res) => {
   }
 })
 
-// PUT update inventory item
 app.put('/inventory/:id', async (req, res) => {
   try {
     const { name, quantity, unit, price } = req.body
@@ -351,6 +359,7 @@ app.put('/inventory/:id', async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { name, quantity: Number(quantity), unit, price: price ? Number(price) : null },
     })
+    await logActivity('Inventory item updated:', name)
     res.json(item)
   } catch (err) {
     console.error(err)
@@ -358,10 +367,11 @@ app.put('/inventory/:id', async (req, res) => {
   }
 })
 
-// DELETE inventory item
 app.delete('/inventory/:id', async (req, res) => {
   try {
+    const item = await prisma.inventory.findUnique({ where: { id: Number(req.params.id) } })
     await prisma.inventory.delete({ where: { id: Number(req.params.id) } })
+    await logActivity('Inventory item removed:', item?.name || 'Unknown')
     res.json({ message: 'Inventory item deleted' })
   } catch (err) {
     console.error(err)
@@ -386,6 +396,7 @@ app.post('/customers', async (req, res) => {
   try {
     const { name, email, phone, address } = req.body
     const customer = await prisma.customer.create({ data: { name, email, phone, address } })
+    await logActivity('New customer added:', name)
     res.status(201).json(customer)
   } catch (err) {
     res.status(500).json({ error: 'Failed to create customer' })
@@ -407,7 +418,9 @@ app.put('/customers/:id', async (req, res) => {
 
 app.delete('/customers/:id', async (req, res) => {
   try {
+    const customer = await prisma.customer.findUnique({ where: { id: Number(req.params.id) } })
     await prisma.customer.delete({ where: { id: Number(req.params.id) } })
+    await logActivity('Customer removed:', customer?.name || 'Unknown')
     res.json({ message: 'Customer deleted' })
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete customer' })
@@ -415,7 +428,7 @@ app.delete('/customers/:id', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────
-// EXPENSES (standalone — not project-specific)
+// EXPENSES (standalone)
 // ─────────────────────────────────────────────
 
 app.get('/expenses', async (req, res) => {
