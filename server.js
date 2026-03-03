@@ -55,8 +55,7 @@ app.post("/projects", async (req, res) => {
     const { name, description, status, startDate, endDate, quotation, progress, customerId } = req.body
     const project = await prisma.project.create({
       data: {
-        name,
-        description,
+        name, description,
         status: status || "pending",
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
@@ -79,9 +78,7 @@ app.put("/projects/:id", async (req, res) => {
     const project = await prisma.project.update({
       where: { id: Number(req.params.id) },
       data: {
-        name,
-        description,
-        status,
+        name, description, status,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         quotation: quotation ? Number(quotation) : null,
@@ -162,12 +159,7 @@ app.post("/projects/:id/expenses", async (req, res) => {
     if (!amount) return res.status(400).json({ error: "Amount is required" })
     const project = await prisma.project.findUnique({ where: { id: Number(req.params.id) } })
     const expense = await prisma.expense.create({
-      data: {
-        projectId: Number(req.params.id),
-        title,
-        amount: Number(amount),
-        category: category || null,
-      },
+      data: { projectId: Number(req.params.id), title, amount: Number(amount), category: category || null },
     })
     await logActivity("Expense " + title + " of KSh " + Number(amount).toLocaleString() + " added to", project ? project.name : "project")
     res.status(201).json(expense)
@@ -260,9 +252,9 @@ app.get("/employees", async (req, res) => {
 
 app.post("/employees", async (req, res) => {
   try {
-    const { name, email, phone, role, department, salary } = req.body
+    const { name, email, phone, role, department, salary, employmentType } = req.body
     const employee = await prisma.employee.create({
-      data: { name, email, phone, role, department, salary: salary ? Number(salary) : null },
+      data: { name, email, phone, role, department, salary: salary ? Number(salary) : null, employmentType: employmentType || "monthly" },
     })
     await logActivity("New employee added:", name)
     res.status(201).json(employee)
@@ -274,10 +266,10 @@ app.post("/employees", async (req, res) => {
 
 app.put("/employees/:id", async (req, res) => {
   try {
-    const { name, email, phone, role, department, salary } = req.body
+    const { name, email, phone, role, department, salary, employmentType } = req.body
     const employee = await prisma.employee.update({
       where: { id: Number(req.params.id) },
-      data: { name, email, phone, role, department, salary: salary ? Number(salary) : null },
+      data: { name, email, phone, role, department, salary: salary ? Number(salary) : null, employmentType: employmentType || "monthly" },
     })
     await logActivity("Employee updated:", name)
     res.json(employee)
@@ -415,12 +407,7 @@ app.post("/expenses", async (req, res) => {
     if (!title) return res.status(400).json({ error: "Title is required" })
     if (!amount) return res.status(400).json({ error: "Amount is required" })
     const expense = await prisma.expense.create({
-      data: {
-        title,
-        amount: Number(amount),
-        category: category || null,
-        projectId: projectId ? Number(projectId) : null,
-      },
+      data: { title, amount: Number(amount), category: category || null, projectId: projectId ? Number(projectId) : null },
     })
     await logActivity("Expense " + title + " of KSh " + Number(amount).toLocaleString() + " added", "")
     res.status(201).json(expense)
@@ -435,12 +422,7 @@ app.put("/expenses/:id", async (req, res) => {
     const { title, amount, category, projectId } = req.body
     const expense = await prisma.expense.update({
       where: { id: Number(req.params.id) },
-      data: {
-        title,
-        amount: Number(amount),
-        category: category || null,
-        projectId: projectId ? Number(projectId) : null,
-      },
+      data: { title, amount: Number(amount), category: category || null, projectId: projectId ? Number(projectId) : null },
     })
     res.json(expense)
   } catch (err) {
@@ -456,6 +438,96 @@ app.delete("/expenses/:id", async (req, res) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: "Failed to delete expense" })
+  }
+})
+
+app.get("/payroll/weekly", async (req, res) => {
+  try {
+    const payrolls = await prisma.weeklyPayroll.findMany({
+      orderBy: { weekStart: "desc" },
+      include: { project: { select: { name: true } } },
+    })
+    res.json(payrolls)
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch weekly payroll" })
+  }
+})
+
+app.post("/payroll/weekly", async (req, res) => {
+  try {
+    const { projectId, foremanName, numWorkers, dailyRate, daysWorked, totalAmount, weekStart, weekEnd, note } = req.body
+    const entry = await prisma.weeklyPayroll.create({
+      data: {
+        projectId: Number(projectId),
+        foremanName,
+        numWorkers: Number(numWorkers),
+        dailyRate: Number(dailyRate),
+        daysWorked: Number(daysWorked),
+        totalAmount: Number(totalAmount),
+        weekStart: new Date(weekStart),
+        weekEnd: new Date(weekEnd),
+        note: note || null,
+      },
+    })
+    await logActivity("Weekly payroll of KSh " + Number(totalAmount).toLocaleString() + " paid via foreman", foremanName)
+    res.status(201).json(entry)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: "Failed to create weekly payroll" })
+  }
+})
+
+app.delete("/payroll/weekly/:id", async (req, res) => {
+  try {
+    await prisma.weeklyPayroll.delete({ where: { id: Number(req.params.id) } })
+    res.json({ message: "Weekly payroll deleted" })
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete weekly payroll" })
+  }
+})
+
+app.get("/payroll/monthly", async (req, res) => {
+  try {
+    const payrolls = await prisma.monthlyPayroll.findMany({
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+      include: { employee: { select: { name: true, role: true } } },
+    })
+    res.json(payrolls)
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch monthly payroll" })
+  }
+})
+
+app.post("/payroll/monthly", async (req, res) => {
+  try {
+    const { employeeId, month, year, amount, note } = req.body
+    const employee = await prisma.employee.findUnique({ where: { id: Number(employeeId) } })
+    const entry = await prisma.monthlyPayroll.create({
+      data: {
+        employeeId: Number(employeeId),
+        month: Number(month),
+        year: Number(year),
+        amount: Number(amount),
+        paid: true,
+        paidAt: new Date(),
+        note: note || null,
+      },
+    })
+    await logActivity("Monthly salary paid to", employee ? employee.name : "employee")
+    res.status(201).json(entry)
+  } catch (err) {
+    if (err.code === "P2002") return res.status(409).json({ error: "Salary already recorded for this employee and month" })
+    console.error(err)
+    res.status(500).json({ error: "Failed to create monthly payroll" })
+  }
+})
+
+app.delete("/payroll/monthly/:id", async (req, res) => {
+  try {
+    await prisma.monthlyPayroll.delete({ where: { id: Number(req.params.id) } })
+    res.json({ message: "Monthly payroll deleted" })
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete monthly payroll" })
   }
 })
 

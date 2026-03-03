@@ -8,15 +8,17 @@ datasource db {
 }
 
 model Employee {
-  id         Int               @id @default(autoincrement())
-  name       String
-  email      String            @unique
-  phone      String?
-  role       String
-  department String
-  salary     Float?
-  createdAt  DateTime          @default(now())
-  projects   ProjectEmployee[]
+  id             Int               @id @default(autoincrement())
+  name           String
+  email          String            @unique
+  phone          String?
+  role           String
+  department     String
+  salary         Float?
+  employmentType String            @default("monthly")
+  createdAt      DateTime          @default(now())
+  projects       ProjectEmployee[]
+  monthlyPayroll MonthlyPayroll[]
 }
 
 model Customer {
@@ -30,21 +32,22 @@ model Customer {
 }
 
 model Project {
-  id          Int                @id @default(autoincrement())
-  name        String
-  description String?
-  status      String             @default("pending")
-  startDate   DateTime?
-  endDate     DateTime?
-  quotation   Float?
-  progress    Int                @default(0)
-  customerId  Int?
-  customer    Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  createdAt   DateTime           @default(now())
-  employees   ProjectEmployee[]
-  expenses    Expense[]
-  inventory   ProjectInventory[]
-  payments    Payment[]
+  id             Int                @id @default(autoincrement())
+  name           String
+  description    String?
+  status         String             @default("pending")
+  startDate      DateTime?
+  endDate        DateTime?
+  quotation      Float?
+  progress       Int                @default(0)
+  customerId     Int?
+  customer       Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt      DateTime           @default(now())
+  employees      ProjectEmployee[]
+  expenses       Expense[]
+  inventory      ProjectInventory[]
+  payments       Payment[]
+  weeklyPayrolls WeeklyPayroll[]
 }
 
 model ProjectEmployee {
@@ -104,6 +107,36 @@ model Expense {
   projectId   Int?
   project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
+}
+
+model WeeklyPayroll {
+  id           Int      @id @default(autoincrement())
+  projectId    Int
+  foremanName  String
+  numWorkers   Int
+  dailyRate    Float
+  daysWorked   Float
+  totalAmount  Float
+  weekStart    DateTime
+  weekEnd      DateTime
+  note         String?
+  createdAt    DateTime @default(now())
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model MonthlyPayroll {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  month      Int
+  year       Int
+  amount     Float
+  paid       Boolean  @default(false)
+  paidAt     DateTime?
+  note       String?
+  createdAt  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month, year])
 }
 
 model Activity {
