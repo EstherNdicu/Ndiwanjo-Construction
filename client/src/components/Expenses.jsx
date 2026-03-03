@@ -2,15 +2,20 @@ import { useState, useEffect } from 'react'
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([])
+  const [projects, setProjects] = useState([])
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
+  const [filterProject, setFilterProject] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState({ title: '', amount: '', category: '', projectName: '' })
+  const [form, setForm] = useState({ title: '', amount: '', category: '', projectId: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { fetchExpenses() }, [])
+  useEffect(() => {
+    fetchExpenses()
+    fetchProjects()
+  }, [])
 
   const fetchExpenses = async () => {
     try {
@@ -20,7 +25,6 @@ export default function Expenses() {
       setExpenses(Array.isArray(data) ? data : [])
       setError(null)
     } catch (err) {
-      console.error('Failed to fetch expenses:', err)
       setExpenses([])
       setError('Could not connect to the server. Make sure your backend is running.')
     } finally {
@@ -28,12 +32,21 @@ export default function Expenses() {
     }
   }
 
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/projects')
+      const data = await res.json()
+      setProjects(Array.isArray(data) ? data : [])
+    } catch {}
+  }
+
   const filtered = expenses.filter(e => {
     const matchesSearch =
       e.title?.toLowerCase().includes(search.toLowerCase()) ||
-      e.projectName?.toLowerCase().includes(search.toLowerCase())
+      e.project?.name?.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = filterCategory === 'all' || e.category === filterCategory
-    return matchesSearch && matchesCategory
+    const matchesProject = filterProject === 'all' || String(e.projectId) === filterProject
+    return matchesSearch && matchesCategory && matchesProject
   })
 
   const handleSubmit = async () => {
@@ -44,27 +57,40 @@ export default function Expenses() {
         await fetch(`http://localhost:5000/expenses/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
+          body: JSON.stringify({ ...form, projectId: form.projectId ? Number(form.projectId) : null })
         })
         setEditingId(null)
       } else {
-        await fetch('http://localhost:5000/expenses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        })
+        // If project selected, add via project route so it links correctly
+        if (form.projectId) {
+          await fetch(`http://localhost:5000/projects/${form.projectId}/expenses`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: form.title, amount: form.amount, category: form.category })
+          })
+        } else {
+          await fetch('http://localhost:5000/expenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...form, projectId: null })
+          })
+        }
       }
-      setForm({ title: '', amount: '', category: '', projectName: '' })
+      setForm({ title: '', amount: '', category: '', projectId: '' })
       setShowForm(false)
       fetchExpenses()
     } catch (err) {
-      console.error('Failed to save expense:', err)
       alert('Failed to save expense. Check your server.')
     }
   }
 
   const handleEdit = (e) => {
-    setForm({ title: e.title, amount: e.amount, category: e.category, projectName: e.projectName })
+    setForm({
+      title: e.title,
+      amount: e.amount,
+      category: e.category || '',
+      projectId: e.projectId || ''
+    })
     setEditingId(e.id)
     setShowForm(true)
   }
@@ -74,8 +100,7 @@ export default function Expenses() {
     try {
       await fetch(`http://localhost:5000/expenses/${id}`, { method: 'DELETE' })
       fetchExpenses()
-    } catch (err) {
-      console.error('Failed to delete expense:', err)
+    } catch {
       alert('Failed to delete expense. Check your server.')
     }
   }
@@ -83,12 +108,13 @@ export default function Expenses() {
   const handleCancel = () => {
     setShowForm(false)
     setEditingId(null)
-    setForm({ title: '', amount: '', category: '', projectName: '' })
+    setForm({ title: '', amount: '', category: '', projectId: '' })
   }
 
   const total = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
   const pending = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
   const paid = expenses.filter(e => e.category === 'paid').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+  const materials = expenses.filter(e => e.category === 'materials').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -103,7 +129,6 @@ export default function Expenses() {
         </button>
       </div>
 
-      {/* Error Banner */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm flex justify-between items-center">
           <span>⚠️ {error}</span>
@@ -112,22 +137,26 @@ export default function Expenses() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Total Expenses</p>
-          <p className="text-3xl font-bold text-white mt-1">KSh {total.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-white mt-1">KSh {total.toLocaleString()}</p>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Pending Payments</p>
-          <p className="text-3xl font-bold text-red-400 mt-1">KSh {pending.toLocaleString()}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
+          <p className="text-zinc-500 text-sm">Pending</p>
+          <p className="text-2xl font-bold text-red-400 mt-1">KSh {pending.toLocaleString()}</p>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Paid</p>
-          <p className="text-3xl font-bold text-green-400 mt-1">KSh {paid.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-green-400 mt-1">KSh {paid.toLocaleString()}</p>
+        </div>
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
+          <p className="text-zinc-500 text-sm">Materials</p>
+          <p className="text-2xl font-bold text-blue-400 mt-1">KSh {materials.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Search and Filter */}
+      {/* Search and Filters */}
       <div className="flex gap-3">
         <div className="relative flex-1">
           <span className="absolute left-4 top-3 text-zinc-500">🔍</span>
@@ -152,6 +181,13 @@ export default function Expenses() {
           <option value="equipment">Equipment</option>
           <option value="other">Other</option>
         </select>
+        <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)}
+          className="bg-zinc-900 border border-zinc-800 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <option value="all">All Projects</option>
+          {projects.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
 
       {showForm && (
@@ -159,10 +195,10 @@ export default function Expenses() {
           <h4 className="col-span-2 text-white font-semibold">
             {editingId ? 'Edit Expense' : 'Add New Expense'}
           </h4>
-          <input placeholder="Expense Title" value={form.title}
+          <input placeholder="Expense Title *" value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <input placeholder="Amount (KSh)" type="number" value={form.amount}
+          <input placeholder="Amount (KSh) *" type="number" value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
           <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -175,9 +211,14 @@ export default function Expenses() {
             <option value="equipment">Equipment</option>
             <option value="other">Other</option>
           </select>
-          <input placeholder="Project Name (optional)" value={form.projectName}
-            onChange={(e) => setForm({ ...form, projectName: e.target.value })}
-            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          {/* ✅ Project dropdown instead of free text */}
+          <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}
+            className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="">No Project (General Expense)</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
           <div className="col-span-2 flex gap-3">
             <button onClick={handleSubmit}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
@@ -221,8 +262,14 @@ export default function Expenses() {
                     'bg-zinc-700 text-zinc-400'
                   }`}>{e.category || 'uncategorized'}</span>
                 </td>
-                <td className="px-6 py-4 text-zinc-400">{e.projectName || '-'}</td>
-                <td className="px-6 py-4 text-zinc-400">{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '-'}</td>
+                <td className="px-6 py-4 text-zinc-400 text-sm">
+                  {e.project?.name ? (
+                    <span className="bg-zinc-800 px-2 py-1 rounded text-zinc-300 text-xs">{e.project.name}</span>
+                  ) : '—'}
+                </td>
+                <td className="px-6 py-4 text-zinc-400 text-sm">
+                  {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}
+                </td>
                 <td className="px-6 py-4 flex gap-3">
                   <button onClick={() => handleEdit(e)}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
@@ -232,6 +279,17 @@ export default function Expenses() {
               </tr>
             ))}
           </tbody>
+          {filtered.length > 0 && (
+            <tfoot>
+              <tr className="border-t-2 border-zinc-700 bg-zinc-800/50">
+                <td className="px-6 py-3 text-white font-bold text-sm">Total ({filtered.length} records)</td>
+                <td className="px-6 py-3 text-orange-400 font-bold text-sm">
+                  KSh {filtered.reduce((sum, e) => sum + (Number(e.amount) || 0), 0).toLocaleString()}
+                </td>
+                <td colSpan="4"></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>
