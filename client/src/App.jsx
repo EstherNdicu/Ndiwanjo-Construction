@@ -8,7 +8,7 @@ import Inventory from './components/Inventory'
 import Expenses from './components/Expenses'
 import Reports from './components/Reports'
 import Payroll from './components/Payroll'
-import Settings from './components/Settings'
+import Settings from './components/settings'
 
 export default function App() {
   const [activePage, setActivePage] = useState('Dashboard')
