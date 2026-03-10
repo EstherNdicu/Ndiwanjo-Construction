@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Login from './components/Login'
+import NotificationBell from './components/NotificationBell'
 import Dashboard from './components/Dashboard'
 import Employees from './components/Employees'
 import Customers from './components/Customers'
@@ -184,9 +185,12 @@ export default function App() {
             <h2 className="text-xl font-bold text-white">{activePage}</h2>
             <p className="text-xs" style={{ color: '#4a6fa5' }}>{companyName} › {activePage}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-green-400"></div>
-            <span className="text-xs" style={{ color: '#4a6fa5' }}>System Online</span>
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400"></div>
+              <span className="text-xs" style={{ color: '#4a6fa5' }}>System Online</span>
+            </div>
           </div>
         </div>
 
