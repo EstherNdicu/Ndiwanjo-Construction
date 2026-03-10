@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import InvoiceGenerator from './InvoiceGenerator'
+import ProjectPDFReport from './ProjectPDFReport'
 
 export default function ProjectDetail({ projectId, onBack }) {
   const [project, setProject] = useState(null)
@@ -191,6 +192,7 @@ export default function ProjectDetail({ projectId, onBack }) {
             <p className="text-zinc-500 text-sm mt-1">{project.description || 'No description'}</p>
           </div>
           <div className="flex items-center gap-3">
+            <ProjectPDFReport project={project} />
             <button onClick={() => setShowInvoice(true)}
               className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               🧾 Generate Invoice
