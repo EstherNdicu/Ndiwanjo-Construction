@@ -166,7 +166,7 @@ export default function ProjectDetail({ projectId, onBack }) {
   if (loading) return <div className="flex items-center justify-center py-24"><p className="text-zinc-500">Loading project...</p></div>
   if (error) return (
     <div className="space-y-4">
-      <button onClick={onBack} className="text-zinc-400 hover:text-white text-sm">← Back to Projects</button>
+      <button onClick={onBack} className="text-zinc-400 hover:text-white text-sm">â† Back to Projects</button>
       <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3">{error}</div>
     </div>
   )
@@ -184,7 +184,7 @@ export default function ProjectDetail({ projectId, onBack }) {
       {/* Header */}
       <div>
         <button onClick={onBack} className="text-zinc-400 hover:text-white text-sm mb-4 flex items-center gap-1">
-          ← Back to Projects
+          â† Back to Projects
         </button>
         <div className="flex justify-between items-start">
           <div>
@@ -195,7 +195,7 @@ export default function ProjectDetail({ projectId, onBack }) {
             <ProjectPDFReport project={project} />
             <button onClick={() => setShowInvoice(true)}
               className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-              🧾 Generate Invoice
+              ðŸ§¾ Generate Invoice
             </button>
             <span className={`text-xs px-3 py-1 rounded-full font-medium ${
               project.status === 'completed' ? 'bg-green-500/20 text-green-400' :
@@ -244,7 +244,7 @@ export default function ProjectDetail({ projectId, onBack }) {
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <p className="text-zinc-500 text-sm">Quotation</p>
           <p className="text-2xl font-bold text-white mt-1">
-            {project.quotation ? `KSh ${Number(project.quotation).toLocaleString()}` : '—'}
+            {project.quotation ? `KSh ${Number(project.quotation).toLocaleString()}` : 'â€”'}
           </p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
@@ -266,7 +266,7 @@ export default function ProjectDetail({ projectId, onBack }) {
             {isProfit ? '+' : ''}KSh {profit.toLocaleString()}
           </p>
           <p className={`text-xs mt-1 ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-            {isProfit ? '✓ In profit' : '✗ In loss'}
+            {isProfit ? 'âœ“ In profit' : 'âœ— In loss'}
           </p>
         </div>
       </div>
@@ -287,7 +287,7 @@ export default function ProjectDetail({ projectId, onBack }) {
       {activeTab === 'financials' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <p className="text-zinc-400 text-sm">{project.payments?.length || 0} payments — Total: KSh {totalEarned.toLocaleString()}</p>
+            <p className="text-zinc-400 text-sm">{project.payments?.length || 0} payments â€” Total: KSh {totalEarned.toLocaleString()}</p>
             <button onClick={() => setShowPaymentForm(!showPaymentForm)}
               className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
               + Record Payment
@@ -316,7 +316,7 @@ export default function ProjectDetail({ projectId, onBack }) {
             ) : project.payments.map((payment) => (
               <div key={payment.id} className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 hover:bg-zinc-800/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 text-sm">💰</div>
+                  <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 text-sm">ðŸ’°</div>
                   <div>
                     <p className="text-white font-medium">{payment.note || 'Payment received'}</p>
                     <p className="text-zinc-500 text-xs">{payment.receivedAt ? new Date(payment.receivedAt).toLocaleDateString() : '-'}</p>
@@ -371,7 +371,7 @@ export default function ProjectDetail({ projectId, onBack }) {
               <select value={selectedEmployeeId} onChange={e => setSelectedEmployeeId(e.target.value)}
                 className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
                 <option value="">Select Employee</option>
-                {availableEmployees.map(e => <option key={e.id} value={e.id}>{e.name} — {e.role}</option>)}
+                {availableEmployees.map(e => <option key={e.id} value={e.id}>{e.name} â€” {e.role}</option>)}
               </select>
               <button onClick={assignEmployee} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Assign</button>
               <button onClick={() => setShowEmployeeForm(false)} className="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Cancel</button>
@@ -388,7 +388,7 @@ export default function ProjectDetail({ projectId, onBack }) {
                   </div>
                   <div>
                     <p className="text-white font-medium">{employee.name}</p>
-                    <p className="text-zinc-500 text-xs">{employee.role} — {employee.department}</p>
+                    <p className="text-zinc-500 text-xs">{employee.role} â€” {employee.department}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -429,7 +429,7 @@ export default function ProjectDetail({ projectId, onBack }) {
             ) : project.inventory.map(({ inventory, quantity }) => (
               <div key={inventory.id} className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 hover:bg-zinc-800/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 text-sm">📦</div>
+                  <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 text-sm">ðŸ“¦</div>
                   <div>
                     <p className="text-white font-medium">{inventory.name}</p>
                     <p className="text-zinc-500 text-xs">{inventory.unit}</p>
@@ -451,7 +451,7 @@ export default function ProjectDetail({ projectId, onBack }) {
       {activeTab === 'expenses' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <p className="text-zinc-400 text-sm">{project.expenses?.length || 0} expenses — Total: KSh {totalExpenses.toLocaleString()}</p>
+            <p className="text-zinc-400 text-sm">{project.expenses?.length || 0} expenses â€” Total: KSh {totalExpenses.toLocaleString()}</p>
             <button onClick={() => setShowExpenseForm(!showExpenseForm)}
               className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Add Expense</button>
           </div>

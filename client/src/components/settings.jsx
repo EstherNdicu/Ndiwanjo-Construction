@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import UserManagement from './UserManagement'
 
 const DEFAULT_SETTINGS = {
   companyName: 'Ndiwanjo Construction',
@@ -62,6 +63,7 @@ export default function Settings() {
     { id: 'contact', label: 'Contact Details', icon: '📞' },
     { id: 'invoice', label: 'Invoice Settings', icon: '🧾' },
     { id: 'currency', label: 'Currency', icon: '💰' },
+    { id: 'users', label: 'User Management', icon: '👥' },
   ]
 
   return (
@@ -349,6 +351,13 @@ export default function Settings() {
                 <p className="text-yellow-400 text-sm font-medium">⚠️ Note</p>
                 <p className="text-zinc-400 text-sm mt-1">Changing the currency symbol only changes how amounts are displayed. It does not convert any values in the database.</p>
               </div>
+            </div>
+          )}
+
+          {/* USERS */}
+          {activeSection === 'users' && (
+            <div className="bg-[#0d1f3c] border border-[#1e3a5f] rounded-xl p-6">
+              <UserManagement currentUser={null} />
             </div>
           )}
         </div>
