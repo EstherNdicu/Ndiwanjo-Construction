@@ -555,6 +555,105 @@ app.delete('/users/:id', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────
+// CUSTOMER PORTAL
+// ─────────────────────────────────────────────
+
+const crypto = require('crypto')
+
+// Generate portal token for a project
+app.post('/projects/:id/portal-token', async (req, res) => {
+  try {
+    const token = crypto.randomBytes(20).toString('hex')
+    const project = await prisma.project.update({
+      where: { id: Number(req.params.id) },
+      data: { portalToken: token },
+    })
+    res.json({ token })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate portal link' })
+  }
+})
+
+// Generate portal token for a customer
+app.post('/customers/:id/portal-token', async (req, res) => {
+  try {
+    const token = crypto.randomBytes(20).toString('hex')
+    await prisma.customer.update({
+      where: { id: Number(req.params.id) },
+      data: { portalToken: token },
+    })
+    res.json({ token })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate portal link' })
+  }
+})
+
+// Revoke portal token for a project
+app.delete('/projects/:id/portal-token', async (req, res) => {
+  try {
+    await prisma.project.update({ where: { id: Number(req.params.id) }, data: { portalToken: null } })
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to revoke link' })
+  }
+})
+
+// Revoke portal token for a customer
+app.delete('/customers/:id/portal-token', async (req, res) => {
+  try {
+    await prisma.customer.update({ where: { id: Number(req.params.id) }, data: { portalToken: null } })
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to revoke link' })
+  }
+})
+
+// Public: view project by token
+app.get('/portal/project/:token', async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { portalToken: req.params.token },
+      include: {
+        payments: { orderBy: { receivedAt: 'desc' } },
+        expenses: { orderBy: { createdAt: 'desc' } },
+        employees: { include: { employee: { select: { name: true, role: true, department: true } } } },
+        customer: { select: { name: true, email: true, phone: true } },
+      },
+    })
+    if (!project) return res.status(404).json({ error: 'Portal not found or link has been revoked.' })
+    // Strip sensitive data
+    const { portalToken, ...safe } = project
+    res.json(safe)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load portal' })
+  }
+})
+
+// Public: view customer portal by token (all their projects)
+app.get('/portal/customer/:token', async (req, res) => {
+  try {
+    const customer = await prisma.customer.findUnique({
+      where: { portalToken: req.params.token },
+      include: {
+        projects: {
+          include: {
+            payments: { orderBy: { receivedAt: 'desc' } },
+            expenses: { orderBy: { createdAt: 'desc' } },
+            employees: { include: { employee: { select: { name: true, role: true, department: true } } } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    })
+    if (!customer) return res.status(404).json({ error: 'Portal not found or link has been revoked.' })
+    const { portalToken, ...safe } = customer
+    res.json(safe)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load portal' })
+  }
+})
+
+// ─────────────────────────────────────────────
 // BACKUP & RESTORE
 // ─────────────────────────────────────────────
 

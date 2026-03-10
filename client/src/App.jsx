@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Login from './components/Login'
 import NotificationBell from './components/NotificationBell'
+import CustomerPortal from './components/CustomerPortal'
 import Dashboard from './components/Dashboard'
 import Employees from './components/Employees'
 import Customers from './components/Customers'
@@ -82,6 +83,11 @@ export default function App() {
       case 'Settings': return <Settings />
       default: return <Dashboard stats={stats} />
     }
+  }
+
+  // Show portal if URL matches /portal/...
+  if (window.location.pathname.startsWith('/portal/')) {
+    return <CustomerPortal />
   }
 
   if (!user) return <Login onLogin={(name) => setUser(name)} />
