@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import UserManagement from './UserManagement'
+import BackupRestore from './Backuprestore'
 
 const DEFAULT_SETTINGS = {
   companyName: 'Ndiwanjo Construction',
@@ -64,6 +65,7 @@ export default function Settings() {
     { id: 'invoice', label: 'Invoice Settings', icon: '🧾' },
     { id: 'currency', label: 'Currency', icon: '💰' },
     { id: 'users', label: 'User Management', icon: '👥' },
+    { id: 'backup', label: 'Backup & Restore', icon: '💾' },
   ]
 
   return (
@@ -358,6 +360,13 @@ export default function Settings() {
           {activeSection === 'users' && (
             <div className="bg-[#0d1f3c] border border-[#1e3a5f] rounded-xl p-6">
               <UserManagement currentUser={null} />
+            </div>
+          )}
+
+          {/* BACKUP */}
+          {activeSection === 'backup' && (
+            <div className="bg-[#0d1f3c] border border-[#1e3a5f] rounded-xl p-6">
+              <BackupRestore />
             </div>
           )}
         </div>

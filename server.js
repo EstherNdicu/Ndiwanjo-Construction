@@ -555,6 +555,153 @@ app.delete('/users/:id', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────
+// BACKUP & RESTORE
+// ─────────────────────────────────────────────
+
+app.get('/backup', async (req, res) => {
+  try {
+    const [projects, customers, employees, inventory, expenses, payments, weeklyPayrolls, monthlyPayrolls, users, activities] = await Promise.all([
+      prisma.project.findMany({ include: { payments: true, expenses: true, employees: true, inventory: true } }),
+      prisma.customer.findMany(),
+      prisma.employee.findMany(),
+      prisma.inventory.findMany(),
+      prisma.expense.findMany(),
+      prisma.payment.findMany(),
+      prisma.weeklyPayroll.findMany(),
+      prisma.monthlyPayroll.findMany(),
+      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true } }),
+      prisma.activity.findMany({ orderBy: { createdAt: 'desc' }, take: 100 }),
+    ])
+    const backup = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      data: { projects, customers, employees, inventory, expenses, payments, weeklyPayrolls, monthlyPayrolls, users, activities }
+    }
+    res.setHeader('Content-Disposition', `attachment; filename=ndiwanjo_backup_${new Date().toISOString().slice(0,10)}.json`)
+    res.setHeader('Content-Type', 'application/json')
+    res.json(backup)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Backup failed: ' + err.message })
+  }
+})
+
+app.post('/restore', async (req, res) => {
+  try {
+    const { data } = req.body
+    if (!data) return res.status(400).json({ error: 'No data provided' })
+
+    const results = { restored: {}, errors: [] }
+
+    // Delete in correct order to avoid FK violations
+    await prisma.activity.deleteMany()
+    await prisma.monthlyPayroll.deleteMany()
+    await prisma.weeklyPayroll.deleteMany()
+    await prisma.projectInventory.deleteMany()
+    await prisma.projectEmployee.deleteMany()
+    await prisma.payment.deleteMany()
+    await prisma.expense.deleteMany()
+    await prisma.project.deleteMany()
+    await prisma.customer.deleteMany()
+    await prisma.employee.deleteMany()
+    await prisma.inventory.deleteMany()
+
+    // Restore customers
+    if (data.customers?.length) {
+      for (const c of data.customers) {
+        await prisma.customer.create({ data: { id: c.id, name: c.name, email: c.email, phone: c.phone, address: c.address, createdAt: new Date(c.createdAt) } })
+      }
+      results.restored.customers = data.customers.length
+    }
+
+    // Restore employees
+    if (data.employees?.length) {
+      for (const e of data.employees) {
+        await prisma.employee.create({ data: { id: e.id, name: e.name, email: e.email, phone: e.phone || null, role: e.role, department: e.department, salary: e.salary ? Number(e.salary) : null, employmentType: e.employmentType || 'monthly', createdAt: new Date(e.createdAt) } })
+      }
+      results.restored.employees = data.employees.length
+    }
+
+    // Restore inventory
+    if (data.inventory?.length) {
+      for (const i of data.inventory) {
+        await prisma.inventory.create({ data: { id: i.id, name: i.name, quantity: Number(i.quantity), unit: i.unit || null, price: i.price ? Number(i.price) : null, createdAt: new Date(i.createdAt) } })
+      }
+      results.restored.inventory = data.inventory.length
+    }
+
+    // Restore projects (without relations)
+    if (data.projects?.length) {
+      for (const p of data.projects) {
+        await prisma.project.create({ data: { id: p.id, name: p.name, description: p.description || null, status: p.status || 'pending', startDate: p.startDate ? new Date(p.startDate) : null, endDate: p.endDate ? new Date(p.endDate) : null, quotation: p.quotation ? Number(p.quotation) : null, progress: Number(p.progress) || 0, customerId: p.customerId ? Number(p.customerId) : null, createdAt: new Date(p.createdAt) } })
+      }
+      results.restored.projects = data.projects.length
+    }
+
+    // Restore payments
+    if (data.payments?.length) {
+      for (const p of data.payments) {
+        await prisma.payment.create({ data: { id: p.id, projectId: Number(p.projectId), amount: Number(p.amount), note: p.note || null, receivedAt: new Date(p.receivedAt) } })
+      }
+      results.restored.payments = data.payments.length
+    }
+
+    // Restore expenses
+    if (data.expenses?.length) {
+      for (const e of data.expenses) {
+        await prisma.expense.create({ data: { id: e.id, title: e.title, amount: Number(e.amount), category: e.category || null, projectId: e.projectId ? Number(e.projectId) : null, projectName: e.projectName || null, createdAt: new Date(e.createdAt) } })
+      }
+      results.restored.expenses = data.expenses.length
+    }
+
+    // Restore project employees
+    if (data.projects?.length) {
+      for (const p of data.projects) {
+        for (const pe of (p.employees || [])) {
+          try {
+            await prisma.projectEmployee.create({ data: { projectId: Number(p.id), employeeId: Number(pe.employeeId) } })
+          } catch {}
+        }
+        for (const pi of (p.inventory || [])) {
+          try {
+            await prisma.projectInventory.create({ data: { projectId: Number(p.id), inventoryId: Number(pi.inventoryId), quantity: Number(pi.quantity) || 0 } })
+          } catch {}
+        }
+      }
+    }
+
+    // Restore payrolls
+    if (data.weeklyPayrolls?.length) {
+      for (const w of data.weeklyPayrolls) {
+        await prisma.weeklyPayroll.create({ data: { id: w.id, projectId: Number(w.projectId), foremanName: w.foremanName, numWorkers: Number(w.numWorkers), dailyRate: Number(w.dailyRate), daysWorked: Number(w.daysWorked), totalAmount: Number(w.totalAmount), weekStart: new Date(w.weekStart), weekEnd: new Date(w.weekEnd), note: w.note || null, createdAt: new Date(w.createdAt) } })
+      }
+      results.restored.weeklyPayrolls = data.weeklyPayrolls.length
+    }
+
+    if (data.monthlyPayrolls?.length) {
+      for (const m of data.monthlyPayrolls) {
+        await prisma.monthlyPayroll.create({ data: { id: m.id, employeeId: Number(m.employeeId), month: Number(m.month), year: Number(m.year), amount: Number(m.amount), paid: Boolean(m.paid), paidAt: m.paidAt ? new Date(m.paidAt) : null, note: m.note || null, createdAt: new Date(m.createdAt) } })
+      }
+      results.restored.monthlyPayrolls = data.monthlyPayrolls.length
+    }
+
+    // Restore activities
+    if (data.activities?.length) {
+      for (const a of data.activities) {
+        await prisma.activity.create({ data: { description: a.description, bold: a.bold || '', createdAt: new Date(a.createdAt) } })
+      }
+      results.restored.activities = data.activities.length
+    }
+
+    await logActivity('System restored from backup', '')
+    res.json({ success: true, results })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Restore failed: ' + err.message })
+  }
+})
+
+// ─────────────────────────────────────────────
 // START
 // ─────────────────────────────────────────────
 
