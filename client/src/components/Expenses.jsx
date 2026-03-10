@@ -11,6 +11,11 @@ export default function Expenses() {
   const [form, setForm] = useState({ title: '', amount: '', category: '', projectId: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('expenses')
+  const [reminderModal, setReminderModal] = useState(null)
+  const [paidInvoices, setPaidInvoices] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ndiwanjo_paid_invoices') || '[]') } catch { return [] }
+  })
 
   useEffect(() => {
     fetchExpenses()
@@ -111,6 +116,40 @@ export default function Expenses() {
     setForm({ title: '', amount: '', category: '', projectId: '' })
   }
 
+  const markAsPaid = (projectId) => {
+    const updated = [...paidInvoices, projectId]
+    setPaidInvoices(updated)
+    localStorage.setItem('ndiwanjo_paid_invoices', JSON.stringify(updated))
+  }
+
+  const unmarkAsPaid = (projectId) => {
+    const updated = paidInvoices.filter(id => id !== projectId)
+    setPaidInvoices(updated)
+    localStorage.setItem('ndiwanjo_paid_invoices', JSON.stringify(updated))
+  }
+
+  // Build invoice list from projects with outstanding balances
+  const invoices = projects
+    .filter(p => p.quotation)
+    .map((p, i) => {
+      const totalPaid = (p.payments || []).reduce((s, pay) => s + Number(pay.amount || 0), 0)
+      const outstanding = Number(p.quotation) - totalPaid
+      return {
+        id: p.id,
+        invoiceNo: `INV-${String(i + 1).padStart(4, '0')}`,
+        projectName: p.name,
+        customerName: p.customer?.name || '—',
+        quotation: Number(p.quotation),
+        totalPaid,
+        outstanding,
+        status: paidInvoices.includes(p.id) ? 'paid' : outstanding <= 0 ? 'paid' : 'outstanding',
+      }
+    })
+
+  const overdueInvoices = invoices.filter(inv => inv.status === 'outstanding')
+  const paidInvoiceList = invoices.filter(inv => inv.status === 'paid')
+  const totalOutstanding = overdueInvoices.reduce((s, inv) => s + inv.outstanding, 0)
+
   const total = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
   const pending = expenses.filter(e => e.category === 'pending').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
   const paid = expenses.filter(e => e.category === 'paid').reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
@@ -120,13 +159,16 @@ export default function Expenses() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-xl font-bold text-white">Expenses</h3>
-          <p className="text-zinc-500 text-sm">{filtered.length} of {expenses.length} records</p>
+          <h3 className="text-xl font-bold text-white">Expenses & Invoices</h3>
+          <p className="text-sm mt-0.5" style={{ color: '#4a6fa5' }}>{filtered.length} expense records · {overdueInvoices.length} outstanding invoices</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
-          {showForm ? 'Cancel' : '+ Add Expense'}
-        </button>
+        {activeTab === 'expenses' && (
+          <button onClick={() => setShowForm(!showForm)}
+            className="px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: 'linear-gradient(135deg, #c9a84c, #a8883a)', color: '#0a1628' }}>
+            {showForm ? 'Cancel' : '+ Add Expense'}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -136,162 +178,323 @@ export default function Expenses() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Total Expenses</p>
-          <p className="text-2xl font-bold text-white mt-1">KSh {total.toLocaleString()}</p>
-        </div>
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Pending</p>
-          <p className="text-2xl font-bold text-red-400 mt-1">KSh {pending.toLocaleString()}</p>
-        </div>
-        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Paid</p>
-          <p className="text-2xl font-bold text-green-400 mt-1">KSh {paid.toLocaleString()}</p>
-        </div>
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
-          <p className="text-zinc-500 text-sm">Materials</p>
-          <p className="text-2xl font-bold text-blue-400 mt-1">KSh {materials.toLocaleString()}</p>
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: '#0d1f3c' }}>
+        {[
+          { id: 'expenses', label: '💰 Expenses', count: expenses.length },
+          { id: 'invoices', label: '🧾 Invoice Tracker', count: overdueInvoices.length, alert: overdueInvoices.length > 0 },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+            style={activeTab === tab.id ? {
+              background: 'linear-gradient(135deg, #c9a84c, #a8883a)', color: '#0a1628'
+            } : { color: '#8a9bb5' }}>
+            {tab.label}
+            <span className="text-xs px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: tab.alert ? '#ef4444' : '#1e3a5f', color: '#fff' }}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <span className="absolute left-4 top-3 text-zinc-500">🔍</span>
-          <input
-            placeholder="Search by title or project..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-600 rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500"
-          />
-          {search && (
-            <button onClick={() => setSearch('')}
-              className="absolute right-4 top-3 text-zinc-500 hover:text-white">✕</button>
+      {/* ── EXPENSES TAB ── */}
+      {activeTab === 'expenses' && (
+        <div className="space-y-5">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#1e3a5f' }}>
+              <p className="text-sm" style={{ color: '#4a6fa5' }}>Total Expenses</p>
+              <p className="text-2xl font-bold text-white mt-1">KSh {total.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#ef444430' }}>
+              <p className="text-sm" style={{ color: '#4a6fa5' }}>Pending</p>
+              <p className="text-2xl font-bold text-red-400 mt-1">KSh {pending.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#22c55e30' }}>
+              <p className="text-sm" style={{ color: '#4a6fa5' }}>Paid</p>
+              <p className="text-2xl font-bold text-green-400 mt-1">KSh {paid.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#3b82f630' }}>
+              <p className="text-sm" style={{ color: '#4a6fa5' }}>Materials</p>
+              <p className="text-2xl font-bold text-blue-400 mt-1">KSh {materials.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex gap-3">
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="🔍 Search expenses..."
+              className="flex-1 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2"
+              style={{ backgroundColor: '#0d1f3c', border: '1px solid #1e3a5f', focusRingColor: '#c9a84c' }} />
+            <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+              className="rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none"
+              style={{ backgroundColor: '#0d1f3c', border: '1px solid #1e3a5f' }}>
+              <option value="all">All Categories</option>
+              {['materials', 'labour', 'equipment', 'transport', 'utilities', 'pending', 'paid'].map(c => (
+                <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+              ))}
+            </select>
+            <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
+              className="rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none"
+              style={{ backgroundColor: '#0d1f3c', border: '1px solid #1e3a5f' }}>
+              <option value="all">All Projects</option>
+              {projects.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+            </select>
+          </div>
+
+          {/* Add/Edit Form */}
+          {showForm && (
+            <div className="rounded-xl p-5 border space-y-3" style={{ backgroundColor: '#0d1f3c', borderColor: '#1e3a5f' }}>
+              <h4 className="text-white font-semibold">{editingId ? 'Edit Expense' : 'Add New Expense'}</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <input placeholder="Expense title *" value={form.title}
+                  onChange={e => setForm({ ...form, title: e.target.value })}
+                  className="rounded-lg px-4 py-2.5 text-sm text-white"
+                  style={{ backgroundColor: '#1e3a5f', border: '1px solid #2a4a7f' }} />
+                <input placeholder="Amount (KSh) *" type="number" value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                  className="rounded-lg px-4 py-2.5 text-sm text-white"
+                  style={{ backgroundColor: '#1e3a5f', border: '1px solid #2a4a7f' }} />
+                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                  className="rounded-lg px-4 py-2.5 text-sm text-white"
+                  style={{ backgroundColor: '#1e3a5f', border: '1px solid #2a4a7f' }}>
+                  <option value="">Category (optional)</option>
+                  {['materials', 'labour', 'equipment', 'transport', 'utilities', 'pending', 'paid'].map(c => (
+                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                  ))}
+                </select>
+                <select value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })}
+                  className="rounded-lg px-4 py-2.5 text-sm text-white"
+                  style={{ backgroundColor: '#1e3a5f', border: '1px solid #2a4a7f' }}>
+                  <option value="">No project</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleSubmit}
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold"
+                  style={{ background: 'linear-gradient(135deg, #c9a84c, #a8883a)', color: '#0a1628' }}>
+                  {editingId ? 'Save Changes' : 'Add Expense'}
+                </button>
+                <button onClick={handleCancel}
+                  className="px-6 py-2.5 rounded-lg text-sm font-medium"
+                  style={{ backgroundColor: '#1e3a5f', color: '#8a9bb5' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
-        </div>
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
-          <option value="all">All Categories</option>
-          <option value="paid">Paid</option>
-          <option value="pending">Pending</option>
-          <option value="materials">Materials</option>
-          <option value="labour">Labour</option>
-          <option value="equipment">Equipment</option>
-          <option value="other">Other</option>
-        </select>
-        <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
-          <option value="all">All Projects</option>
-          {projects.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
 
-      {showForm && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 grid grid-cols-2 gap-4">
-          <h4 className="col-span-2 text-white font-semibold">
-            {editingId ? 'Edit Expense' : 'Add New Expense'}
-          </h4>
-          <input placeholder="Expense Title *" value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <input placeholder="Amount (KSh) *" type="number" value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="">Select Category</option>
-            <option value="paid">Paid</option>
-            <option value="pending">Pending</option>
-            <option value="materials">Materials</option>
-            <option value="labour">Labour</option>
-            <option value="equipment">Equipment</option>
-            <option value="other">Other</option>
-          </select>
-          {/* ✅ Project dropdown instead of free text */}
-          <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}
-            className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="">No Project (General Expense)</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <div className="col-span-2 flex gap-3">
-            <button onClick={handleSubmit}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
-              {editingId ? 'Update Expense' : 'Save Expense'}
-            </button>
-            <button onClick={handleCancel}
-              className="bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
-              Cancel
-            </button>
+          {/* Table */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#1e3a5f' }}>
+            <table className="w-full">
+              <thead>
+                <tr style={{ backgroundColor: '#0a1628' }}>
+                  {['Title', 'Amount', 'Category', 'Project', 'Date', 'Actions'].map(h => (
+                    <th key={h} className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4a6fa5' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-sm" style={{ color: '#4a6fa5' }}>Loading...</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-sm" style={{ color: '#4a6fa5' }}>No expenses found.</td></tr>
+                ) : filtered.map((e, i) => (
+                  <tr key={e.id} className="border-t" style={{ borderColor: '#1e3a5f', backgroundColor: i % 2 === 0 ? '#0d1f3c' : 'transparent' }}>
+                    <td className="px-6 py-4 text-white text-sm font-medium">{e.title}</td>
+                    <td className="px-6 py-4 font-bold text-sm" style={{ color: '#c9a84c' }}>KSh {Number(e.amount).toLocaleString()}</td>
+                    <td className="px-6 py-4">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        e.category === 'materials' ? 'bg-blue-500/20 text-blue-400' :
+                        e.category === 'labour' ? 'bg-purple-500/20 text-purple-400' :
+                        e.category === 'equipment' ? 'bg-yellow-500/20 text-yellow-400' :
+                        e.category === 'paid' ? 'bg-green-500/20 text-green-400' :
+                        e.category === 'pending' ? 'bg-red-500/20 text-red-400' :
+                        'bg-zinc-700 text-zinc-400'
+                      }`}>{e.category || 'uncategorized'}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm" style={{ color: '#8a9bb5' }}>
+                      {e.project?.name ? <span className="px-2 py-1 rounded text-xs" style={{ backgroundColor: '#1e3a5f', color: '#c9a84c' }}>{e.project.name}</span> : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm" style={{ color: '#6b7a8d' }}>{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}</td>
+                    <td className="px-6 py-4 flex gap-3">
+                      <button onClick={() => handleEdit(e)} className="text-sm font-medium" style={{ color: '#c9a84c' }}>Edit</button>
+                      <button onClick={() => handleDelete(e.id)} className="text-red-400 text-sm font-medium">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {filtered.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2" style={{ borderColor: '#1e3a5f', backgroundColor: '#0a1628' }}>
+                    <td className="px-6 py-3 text-white font-bold text-sm">Total ({filtered.length})</td>
+                    <td className="px-6 py-3 font-bold text-sm" style={{ color: '#c9a84c' }}>
+                      KSh {filtered.reduce((sum, e) => sum + (Number(e.amount) || 0), 0).toLocaleString()}
+                    </td>
+                    <td colSpan={4}></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         </div>
       )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-zinc-800">
-              {['Title', 'Amount', 'Category', 'Project', 'Date', 'Actions'].map((h) => (
-                <th key={h} className="px-6 py-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">Loading expenses...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan="6" className="px-6 py-12 text-center text-zinc-600">
-                {search ? `No results for "${search}"` : 'No expenses yet.'}
-              </td></tr>
-            ) : filtered.map((e) => (
-              <tr key={e.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
-                <td className="px-6 py-4 text-white font-medium">{e.title}</td>
-                <td className="px-6 py-4 text-orange-400 font-bold">KSh {Number(e.amount).toLocaleString()}</td>
-                <td className="px-6 py-4">
-                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                    e.category === 'paid' ? 'bg-green-500/20 text-green-400' :
-                    e.category === 'pending' ? 'bg-red-500/20 text-red-400' :
-                    e.category === 'materials' ? 'bg-blue-500/20 text-blue-400' :
-                    e.category === 'labour' ? 'bg-purple-500/20 text-purple-400' :
-                    e.category === 'equipment' ? 'bg-yellow-500/20 text-yellow-400' :
-                    'bg-zinc-700 text-zinc-400'
-                  }`}>{e.category || 'uncategorized'}</span>
-                </td>
-                <td className="px-6 py-4 text-zinc-400 text-sm">
-                  {e.project?.name ? (
-                    <span className="bg-zinc-800 px-2 py-1 rounded text-zinc-300 text-xs">{e.project.name}</span>
-                  ) : '—'}
-                </td>
-                <td className="px-6 py-4 text-zinc-400 text-sm">
-                  {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}
-                </td>
-                <td className="px-6 py-4 flex gap-3">
-                  <button onClick={() => handleEdit(e)}
-                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
-                  <button onClick={() => handleDelete(e.id)}
-                    className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          {filtered.length > 0 && (
-            <tfoot>
-              <tr className="border-t-2 border-zinc-700 bg-zinc-800/50">
-                <td className="px-6 py-3 text-white font-bold text-sm">Total ({filtered.length} records)</td>
-                <td className="px-6 py-3 text-orange-400 font-bold text-sm">
-                  KSh {filtered.reduce((sum, e) => sum + (Number(e.amount) || 0), 0).toLocaleString()}
-                </td>
-                <td colSpan="4"></td>
-              </tr>
-            </tfoot>
+      {/* ── INVOICE TRACKER TAB ── */}
+      {activeTab === 'invoices' && (
+        <div className="space-y-5">
+          {/* Summary cards */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#ef444430' }}>
+              <p className="text-sm" style={{ color: '#4a6fa5' }}>Outstanding Invoices</p>
+              <p className="text-3xl font-bold text-red-400 mt-1">{overdueInvoices.length}</p>
+            </div>
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#ef444430' }}>
+              <p className="text-sm" style={{ color: '#4a6fa5' }}>Total Outstanding</p>
+              <p className="text-2xl font-bold text-red-400 mt-1">KSh {totalOutstanding.toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl p-5 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#22c55e30' }}>
+              <p className="text-sm" style={{ color: '#4a6fa5' }}>Paid Invoices</p>
+              <p className="text-3xl font-bold text-green-400 mt-1">{paidInvoiceList.length}</p>
+            </div>
+          </div>
+
+          {/* Outstanding invoices */}
+          {overdueInvoices.length > 0 && (
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#1e3a5f' }}>
+              <div className="px-5 py-3 flex items-center gap-2" style={{ backgroundColor: '#1a0a0a' }}>
+                <span className="text-red-400 font-semibold text-sm">🔴 Outstanding Invoices</span>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr style={{ backgroundColor: '#0a1628' }}>
+                    {['Invoice #', 'Project', 'Customer', 'Amount Due', 'Actions'].map(h => (
+                      <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4a6fa5' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {overdueInvoices.map((inv, i) => (
+                    <tr key={inv.id} className="border-t" style={{ borderColor: '#1e3a5f', backgroundColor: i % 2 === 0 ? '#0d1f3c' : 'transparent' }}>
+                      <td className="px-5 py-4">
+                        <span className="text-xs font-bold px-2 py-1 rounded" style={{ backgroundColor: '#1e3a5f', color: '#c9a84c' }}>{inv.invoiceNo}</span>
+                      </td>
+                      <td className="px-5 py-4 text-white text-sm font-medium">{inv.projectName}</td>
+                      <td className="px-5 py-4 text-sm" style={{ color: '#8a9bb5' }}>{inv.customerName}</td>
+                      <td className="px-5 py-4">
+                        <p className="text-red-400 font-bold text-sm">KSh {inv.outstanding.toLocaleString()}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#4a6fa5' }}>of KSh {inv.quotation.toLocaleString()}</p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex gap-2">
+                          <button onClick={() => setReminderModal(inv)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+                            style={{ backgroundColor: '#1e3a5f', color: '#c9a84c' }}>
+                            ✉️ Reminder
+                          </button>
+                          <button onClick={() => markAsPaid(inv.id)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors">
+                            ✓ Mark Paid
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2" style={{ borderColor: '#1e3a5f', backgroundColor: '#0a1628' }}>
+                    <td colSpan={3} className="px-5 py-3 text-white font-bold text-sm">Total Outstanding</td>
+                    <td className="px-5 py-3 font-bold text-red-400 text-sm">KSh {totalOutstanding.toLocaleString()}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           )}
-        </table>
-      </div>
+
+          {overdueInvoices.length === 0 && (
+            <div className="rounded-xl p-12 border text-center" style={{ backgroundColor: '#0d1f3c', borderColor: '#1e3a5f' }}>
+              <p className="text-4xl mb-3">✅</p>
+              <p className="text-white font-semibold">All invoices are paid!</p>
+              <p className="text-sm mt-1" style={{ color: '#4a6fa5' }}>No outstanding balances found.</p>
+            </div>
+          )}
+
+          {/* Paid invoices */}
+          {paidInvoiceList.length > 0 && (
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#1e3a5f' }}>
+              <div className="px-5 py-3" style={{ backgroundColor: '#0a2a0a' }}>
+                <span className="text-green-400 font-semibold text-sm">✅ Paid Invoices</span>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr style={{ backgroundColor: '#0a1628' }}>
+                    {['Invoice #', 'Project', 'Customer', 'Contract Value', 'Actions'].map(h => (
+                      <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4a6fa5' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paidInvoiceList.map((inv, i) => (
+                    <tr key={inv.id} className="border-t" style={{ borderColor: '#1e3a5f', backgroundColor: i % 2 === 0 ? '#0d1f3c' : 'transparent' }}>
+                      <td className="px-5 py-4">
+                        <span className="text-xs font-bold px-2 py-1 rounded" style={{ backgroundColor: '#1a3a1a', color: '#22c55e' }}>{inv.invoiceNo}</span>
+                      </td>
+                      <td className="px-5 py-4 text-white text-sm">{inv.projectName}</td>
+                      <td className="px-5 py-4 text-sm" style={{ color: '#8a9bb5' }}>{inv.customerName}</td>
+                      <td className="px-5 py-4 text-green-400 font-bold text-sm">KSh {inv.quotation.toLocaleString()}</td>
+                      <td className="px-5 py-4">
+                        {paidInvoices.includes(inv.id) && (
+                          <button onClick={() => unmarkAsPaid(inv.id)}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                            style={{ backgroundColor: '#1e3a5f', color: '#6b7a8d' }}>
+                            Undo
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Reminder Modal */}
+      {reminderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+          <div className="w-full max-w-lg rounded-2xl p-6 space-y-4" style={{ backgroundColor: '#0a1628', border: '1px solid #1e3a5f' }}>
+            <div className="flex justify-between items-center">
+              <h4 className="text-white font-bold">Payment Reminder</h4>
+              <button onClick={() => setReminderModal(null)} className="text-zinc-500 hover:text-white text-xl">×</button>
+            </div>
+            <p className="text-sm" style={{ color: '#8a9bb5' }}>Copy this message and send it to your client:</p>
+            <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ backgroundColor: '#1e3a5f', color: '#e2e8f0' }}>
+              {`Dear ${reminderModal.customerName},\n\nThis is a friendly reminder regarding invoice ${reminderModal.invoiceNo} for the project "${reminderModal.projectName}".\n\nOutstanding Balance: KSh ${reminderModal.outstanding.toLocaleString()}\nTotal Contract Value: KSh ${reminderModal.quotation.toLocaleString()}\n\nKindly arrange payment at your earliest convenience.\n\nThank you for your continued partnership.\n\nRegards,\nNdiwanjo Construction`.split('\n').map((line, i) => (
+                <span key={i}>{line}<br /></span>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => {
+                navigator.clipboard.writeText(`Dear ${reminderModal.customerName},\n\nThis is a friendly reminder regarding invoice ${reminderModal.invoiceNo} for the project "${reminderModal.projectName}".\n\nOutstanding Balance: KSh ${reminderModal.outstanding.toLocaleString()}\nTotal Contract Value: KSh ${reminderModal.quotation.toLocaleString()}\n\nKindly arrange payment at your earliest convenience.\n\nThank you for your continued partnership.\n\nRegards,\nNdiwanjo Construction`)
+                setReminderModal(null)
+              }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold"
+                style={{ background: 'linear-gradient(135deg, #c9a84c, #a8883a)', color: '#0a1628' }}>
+                📋 Copy Message
+              </button>
+              <button onClick={() => setReminderModal(null)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: '#1e3a5f', color: '#8a9bb5' }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

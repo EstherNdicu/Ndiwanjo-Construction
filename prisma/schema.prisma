@@ -22,13 +22,14 @@ model Employee {
 }
 
 model Customer {
-  id        Int       @id @default(autoincrement())
-  name      String
-  email     String?
-  phone     String?
-  address   String?
-  createdAt DateTime  @default(now())
-  projects  Project[]
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  portalToken String?   @unique
+  createdAt   DateTime  @default(now())
+  projects    Project[]
 }
 
 model Project {
@@ -40,6 +41,7 @@ model Project {
   endDate        DateTime?
   quotation      Float?
   progress       Int                @default(0)
+  portalToken    String?            @unique
   customerId     Int?
   customer       Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdAt      DateTime           @default(now())
