@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import InvoiceGenerator from './InvoiceGenerator'
 import ProjectPDFReport from './ProjectPDFReport'
 import PortalManager from './PortalManager'
+import ProjectDocuments from './projectdocuments'
 
 export default function ProjectDetail({ projectId, onBack }) {
   const [project, setProject] = useState(null)
@@ -172,12 +173,13 @@ export default function ProjectDetail({ projectId, onBack }) {
     </div>
   )
 
-  const tabs = ['financials', 'employees', 'inventory', 'expenses']
+  const tabs = ['financials', 'employees', 'inventory', 'expenses', 'documents']
   const tabCounts = {
     financials: project.payments?.length || 0,
     employees: project.employees?.length || 0,
     inventory: project.inventory?.length || 0,
     expenses: project.expenses?.length || 0,
+    documents: '📎',
   }
 
   return (
@@ -507,6 +509,14 @@ export default function ProjectDetail({ projectId, onBack }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* DOCUMENTS TAB */}
+      {activeTab === 'documents' && (
+        <div className="space-y-4">
+          <p className="text-sm" style={{ color: '#4a6fa5' }}>Upload and manage project documents — contracts, permits, photos, invoices, site reports.</p>
+          <ProjectDocuments projectId={project.id} />
         </div>
       )}
 

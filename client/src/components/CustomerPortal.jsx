@@ -303,6 +303,31 @@ export default function CustomerPortal() {
                   </div>
                 </div>
               )}
+
+              {/* Documents */}
+              {activeProject.documents?.length > 0 && (
+                <div className="rounded-2xl p-6 border" style={{ backgroundColor: '#0d1f3c', borderColor: '#1e3a5f' }}>
+                  <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                    <span className="w-1 h-4 rounded-full inline-block" style={{ backgroundColor: '#c9a84c' }}></span>
+                    Project Documents
+                  </h3>
+                  <div className="space-y-2">
+                    {activeProject.documents.map((doc, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: '#1e3a5f' }}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">📎</span>
+                          <p className="text-white text-sm">{doc.originalName}</p>
+                        </div>
+                        <a href={`http://localhost:5000${doc.url}`} download={doc.originalName}
+                          className="text-xs px-3 py-1.5 rounded-lg"
+                          style={{ backgroundColor: '#0a1628', color: '#c9a84c' }}>
+                          ⬇️ Download
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })()}
