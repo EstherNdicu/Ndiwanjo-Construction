@@ -149,3 +149,51 @@ model Activity {
   bold        String?
   createdAt   DateTime @default(now())
 }
+
+model Equipment {
+  id              Int              @id @default(autoincrement())
+  name            String
+  type            String
+  status          String           @default("available")
+  projectId       Int?
+  purchaseDate    DateTime?
+  purchaseCost    Float?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  maintenanceLogs MaintenanceLog[]
+}
+
+model MaintenanceLog {
+  id          Int       @id @default(autoincrement())
+  equipmentId Int
+  description String
+  cost        Float?
+  date        DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model Supplier {
+  id          Int                @id @default(autoincrement())
+  name        String
+  contact     String?
+  email       String?
+  phone       String?
+  materials   String?
+  creditTerms String?
+  createdAt   DateTime           @default(now())
+  purchases   SupplierPurchase[]
+}
+
+model SupplierPurchase {
+  id          Int      @id @default(autoincrement())
+  supplierId  Int
+  description String
+  amount      Float
+  paid        Boolean  @default(false)
+  paidAt      DateTime?
+  projectId   Int?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}

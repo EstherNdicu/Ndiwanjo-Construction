@@ -675,6 +675,153 @@ app.get('/portal/customer/:token', async (req, res) => {
   }
 })
 
+
+// ─────────────────────────────────────────────
+// EQUIPMENT
+// ─────────────────────────────────────────────
+
+app.get('/equipment', async (req, res) => {
+  try {
+    const equipment = await prisma.equipment.findMany({
+      include: { project: { select: { id: true, name: true } }, maintenanceLogs: { orderBy: { date: 'desc' } } },
+      orderBy: { createdAt: 'desc' }
+    })
+    res.json(equipment)
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch equipment' }) }
+})
+
+app.post('/equipment', async (req, res) => {
+  try {
+    const { name, type, status, projectId, purchaseDate, purchaseCost, notes } = req.body
+    if (!name || !type) return res.status(400).json({ error: 'Name and type are required' })
+    const eq = await prisma.equipment.create({ data: {
+      name, type, status: status || 'available',
+      projectId: projectId ? Number(projectId) : null,
+      purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
+      purchaseCost: purchaseCost ? Number(purchaseCost) : null,
+      notes: notes || null
+    }, include: { project: { select: { id: true, name: true } }, maintenanceLogs: true } })
+    await logActivity('Equipment added:', name)
+    res.json(eq)
+  } catch (err) { res.status(500).json({ error: 'Failed to add equipment' }) }
+})
+
+app.put('/equipment/:id', async (req, res) => {
+  try {
+    const { name, type, status, projectId, purchaseDate, purchaseCost, notes } = req.body
+    const eq = await prisma.equipment.update({
+      where: { id: Number(req.params.id) },
+      data: { name, type, status, projectId: projectId ? Number(projectId) : null, purchaseDate: purchaseDate ? new Date(purchaseDate) : null, purchaseCost: purchaseCost ? Number(purchaseCost) : null, notes: notes || null },
+      include: { project: { select: { id: true, name: true } }, maintenanceLogs: { orderBy: { date: 'desc' } } }
+    })
+    res.json(eq)
+  } catch (err) { res.status(500).json({ error: 'Failed to update equipment' }) }
+})
+
+app.delete('/equipment/:id', async (req, res) => {
+  try {
+    await prisma.equipment.delete({ where: { id: Number(req.params.id) } })
+    res.json({ success: true })
+  } catch (err) { res.status(500).json({ error: 'Failed to delete equipment' }) }
+})
+
+app.post('/equipment/:id/maintenance', async (req, res) => {
+  try {
+    const { description, cost, date } = req.body
+    if (!description) return res.status(400).json({ error: 'Description required' })
+    const log = await prisma.maintenanceLog.create({ data: {
+      equipmentId: Number(req.params.id),
+      description,
+      cost: cost ? Number(cost) : null,
+      date: date ? new Date(date) : new Date()
+    }})
+    res.json(log)
+  } catch (err) { res.status(500).json({ error: 'Failed to add maintenance log' }) }
+})
+
+app.delete('/equipment/:id/maintenance/:logId', async (req, res) => {
+  try {
+    await prisma.maintenanceLog.delete({ where: { id: Number(req.params.logId) } })
+    res.json({ success: true })
+  } catch (err) { res.status(500).json({ error: 'Failed to delete log' }) }
+})
+
+// ─────────────────────────────────────────────
+// SUPPLIERS
+// ─────────────────────────────────────────────
+
+app.get('/suppliers', async (req, res) => {
+  try {
+    const suppliers = await prisma.supplier.findMany({
+      include: { purchases: { orderBy: { date: 'desc' } } },
+      orderBy: { createdAt: 'desc' }
+    })
+    res.json(suppliers)
+  } catch (err) { res.status(500).json({ error: 'Failed to fetch suppliers' }) }
+})
+
+app.post('/suppliers', async (req, res) => {
+  try {
+    const { name, contact, email, phone, materials, creditTerms } = req.body
+    if (!name) return res.status(400).json({ error: 'Supplier name is required' })
+    const supplier = await prisma.supplier.create({ data: { name, contact, email, phone, materials, creditTerms },
+      include: { purchases: true } })
+    await logActivity('Supplier added:', name)
+    res.json(supplier)
+  } catch (err) { res.status(500).json({ error: 'Failed to add supplier' }) }
+})
+
+app.put('/suppliers/:id', async (req, res) => {
+  try {
+    const { name, contact, email, phone, materials, creditTerms } = req.body
+    const supplier = await prisma.supplier.update({
+      where: { id: Number(req.params.id) },
+      data: { name, contact, email, phone, materials, creditTerms },
+      include: { purchases: { orderBy: { date: 'desc' } } }
+    })
+    res.json(supplier)
+  } catch (err) { res.status(500).json({ error: 'Failed to update supplier' }) }
+})
+
+app.delete('/suppliers/:id', async (req, res) => {
+  try {
+    await prisma.supplier.delete({ where: { id: Number(req.params.id) } })
+    res.json({ success: true })
+  } catch (err) { res.status(500).json({ error: 'Failed to delete supplier' }) }
+})
+
+app.post('/suppliers/:id/purchases', async (req, res) => {
+  try {
+    const { description, amount, paid, projectId, date } = req.body
+    if (!description || !amount) return res.status(400).json({ error: 'Description and amount required' })
+    const purchase = await prisma.supplierPurchase.create({ data: {
+      supplierId: Number(req.params.id),
+      description, amount: Number(amount),
+      paid: Boolean(paid),
+      projectId: projectId ? Number(projectId) : null,
+      date: date ? new Date(date) : new Date()
+    }})
+    res.json(purchase)
+  } catch (err) { res.status(500).json({ error: 'Failed to add purchase' }) }
+})
+
+app.patch('/suppliers/:id/purchases/:purchaseId/paid', async (req, res) => {
+  try {
+    const purchase = await prisma.supplierPurchase.update({
+      where: { id: Number(req.params.purchaseId) },
+      data: { paid: true, paidAt: new Date() }
+    })
+    res.json(purchase)
+  } catch (err) { res.status(500).json({ error: 'Failed to mark as paid' }) }
+})
+
+app.delete('/suppliers/:id/purchases/:purchaseId', async (req, res) => {
+  try {
+    await prisma.supplierPurchase.delete({ where: { id: Number(req.params.purchaseId) } })
+    res.json({ success: true })
+  } catch (err) { res.status(500).json({ error: 'Failed to delete purchase' }) }
+})
+
 // ─────────────────────────────────────────────
 // BACKUP & RESTORE
 // ─────────────────────────────────────────────
