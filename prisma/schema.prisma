@@ -50,6 +50,7 @@ model Project {
   inventory      ProjectInventory[]
   payments       Payment[]
   weeklyPayrolls WeeklyPayroll[]
+  equipment      Equipment[]
 }
 
 model ProjectEmployee {
@@ -156,6 +157,7 @@ model Equipment {
   type            String
   status          String           @default("available")
   projectId       Int?
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   purchaseDate    DateTime?
   purchaseCost    Float?
   notes           String?

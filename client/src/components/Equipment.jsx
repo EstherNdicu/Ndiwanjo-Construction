@@ -51,19 +51,21 @@ export default function Equipment({ theme }) {
   }
 
   const handleSubmit = async () => {
-    if (!form.name.trim() || !form.type) return alert('Name and type are required.')
+    if (!form.name.trim()) return alert('Equipment name is required.')
+    if (!form.type) return alert('Please select a type.')
     try {
       const method = editingId ? 'PUT' : 'POST'
       const url = editingId ? `http://localhost:5000/equipment/${editingId}` : 'http://localhost:5000/equipment'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-      if (!res.ok) throw new Error()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
       resetForm()
       await fetchEquipment()
       if (selectedEq) {
-        const updated = await fetch(`http://localhost:5000/equipment`).then(r => r.json())
+        const updated = await fetch('http://localhost:5000/equipment').then(r => r.json())
         setSelectedEq(updated.find(e => e.id === selectedEq.id) || null)
       }
-    } catch { alert('Failed to save equipment.') }
+    } catch (err) { alert('Failed to save equipment: ' + err.message) }
   }
 
   const handleDelete = async (id) => {
