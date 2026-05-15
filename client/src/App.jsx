@@ -6,13 +6,13 @@ import Dashboard from './components/Dashboard'
 import Employees from './components/Employees'
 import Customers from './components/Customers'
 import Projects from './components/Projects'
-import Inventory from './components/Inventory'
 import Expenses from './components/Expenses'
 import Reports from './components/Reports'
 import Payroll from './components/Payroll'
 import Settings from './components/settings'
 import Equipment from './components/Equipment'
 import Suppliers from './components/Suppliers'
+import MaterialRequests from './components/MaterialRequests'
 
 export default function App() {
   const [activePage, setActivePage] = useState('Dashboard')
@@ -81,13 +81,13 @@ export default function App() {
     { name: 'Employees', icon: '👷' },
     { name: 'Customers', icon: '👥' },
     { name: 'Projects', icon: '🏗️' },
-    { name: 'Inventory', icon: '📦' },
     { name: 'Expenses', icon: '💰' },
     { name: 'Reports', icon: '📈' },
     { name: 'Payroll', icon: '💵' },
     { name: 'Equipment', icon: '🚛' },
     { name: 'Suppliers', icon: '🏭' },
     { name: 'Settings', icon: '⚙️' },
+    { name: 'Materials', icon: '🧱' },
   ]
 
   const renderPage = () => {
@@ -96,13 +96,13 @@ export default function App() {
       case 'Employees': return <Employees theme={theme} />
       case 'Customers': return <Customers theme={theme} />
       case 'Projects': return <Projects theme={theme} />
-      case 'Inventory': return <Inventory theme={theme} />
       case 'Expenses': return <Expenses theme={theme} />
       case 'Reports': return <Reports theme={theme} />
       case 'Payroll': return <Payroll theme={theme} />
       case 'Equipment': return <Equipment theme={theme} />
       case 'Suppliers': return <Suppliers theme={theme} />
       case 'Settings': return <Settings theme={theme} />
+      case 'Materials': return <MaterialRequests />
       default: return <Dashboard stats={stats} theme={theme} />
     }
   }

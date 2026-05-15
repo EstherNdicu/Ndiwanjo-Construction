@@ -1,47 +1,34 @@
 import { useState, useEffect } from 'react'
-import ProjectDetail from './ProjectDetail'
 
 export default function Projects() {
   const [projects, setProjects] = useState([])
-  const [customers, setCustomers] = useState([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState({
-    name: '', description: '', status: 'pending',
-    startDate: '', endDate: '', quotation: '', customerId: ''
-  })
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedProjectId, setSelectedProjectId] = useState(null)
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [permits, setPermits] = useState([])
+  const [showPermitForm, setShowPermitForm] = useState(false)
+  const [editingPermitId, setEditingPermitId] = useState(null)
+  const [form, setForm] = useState({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+  const [permitForm, setPermitForm] = useState({ name: '', issueDate: '', expiryDate: '', status: 'active', description: '' })
 
-  useEffect(() => {
-    fetchProjects()
-    fetchCustomers()
-  }, [])
+  useEffect(() => { fetchProjects() }, [])
 
   const fetchProjects = async () => {
     try {
-      setLoading(true)
-      const res = await fetch(`http://localhost:5000/projects?t=${Date.now()}`, { cache: 'no-store' })
+      const res = await fetch('http://localhost:5000/projects')
       const data = await res.json()
       setProjects(Array.isArray(data) ? data : [])
-      setError(null)
-    } catch (err) {
-      setProjects([])
-      setError('Could not connect to the server. Make sure your backend is running.')
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { setProjects([]) }
   }
 
-  const fetchCustomers = async () => {
+  const fetchPermits = async (projectId) => {
     try {
-      const res = await fetch(`http://localhost:5000/customers?t=${Date.now()}`, { cache: 'no-store' })
+      const res = await fetch(`http://localhost:5000/permits/project/${projectId}`)
       const data = await res.json()
-      setCustomers(Array.isArray(data) ? data : [])
-    } catch {}
+      setPermits(Array.isArray(data) ? data : [])
+    } catch (e) { setPermits([]) }
   }
 
   const filtered = projects.filter(p => {
@@ -53,69 +40,98 @@ export default function Projects() {
   })
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) return alert('Project name is required.')
-    try {
-      if (editingId) {
-        await fetch(`http://localhost:5000/projects/${editingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        })
-        setEditingId(null)
-      } else {
-        await fetch('http://localhost:5000/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        })
-      }
-      setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '', customerId: '' })
-      setShowForm(false)
-      fetchProjects()
-    } catch (err) {
-      alert('Failed to save project. Check your server.')
+    if (editingId) {
+      await fetch(`http://localhost:5000/projects/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+      setEditingId(null)
+    } else {
+      await fetch('http://localhost:5000/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
     }
+    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
+    setShowForm(false)
+    fetchProjects()
   }
 
-  const handleEdit = (e, p) => {
-    e.stopPropagation()
+  const handleEdit = (p) => {
     setForm({
-      name: p.name,
-      description: p.description || '',
-      status: p.status,
+      name: p.name, description: p.description, status: p.status,
       startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
-      endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
-      quotation: p.quotation || '',
-      customerId: p.customerId || ''
+      endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : ''
     })
     setEditingId(p.id)
     setShowForm(true)
+    setSelectedProject(null)
   }
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation()
-    if (!window.confirm('Are you sure you want to delete this project?')) return
-    try {
-      await fetch(`http://localhost:5000/projects/${id}`, { method: 'DELETE' })
-      fetchProjects()
-    } catch (err) {
-      alert('Failed to delete project. Check your server.')
-    }
+  const handleDelete = async (id) => {
+    await fetch(`http://localhost:5000/projects/${id}`, { method: 'DELETE' })
+    fetchProjects()
+    if (selectedProject?.id === id) setSelectedProject(null)
   }
 
   const handleCancel = () => {
     setShowForm(false)
     setEditingId(null)
-    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '', quotation: '', customerId: '' })
+    setForm({ name: '', description: '', status: 'pending', startDate: '', endDate: '' })
   }
 
-  if (selectedProjectId) {
-    return (
-      <ProjectDetail
-        projectId={selectedProjectId}
-        onBack={() => { setSelectedProjectId(null); fetchProjects() }}
-      />
-    )
+  const handleSelectProject = (p) => {
+    setSelectedProject(p)
+    fetchPermits(p.id)
+    setShowForm(false)
+  }
+
+  const handlePermitSubmit = async () => {
+    if (editingPermitId) {
+      await fetch(`http://localhost:5000/permits/${editingPermitId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...permitForm, projectId: selectedProject.id })
+      })
+      setEditingPermitId(null)
+    } else {
+      await fetch('http://localhost:5000/permits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...permitForm, projectId: selectedProject.id })
+      })
+    }
+    setPermitForm({ name: '', issueDate: '', expiryDate: '', status: 'active', description: '' })
+    setShowPermitForm(false)
+    fetchPermits(selectedProject.id)
+  }
+
+  const handleEditPermit = (permit) => {
+    setPermitForm({
+      name: permit.name,
+      issueDate: permit.issueDate ? new Date(permit.issueDate).toISOString().split('T')[0] : '',
+      expiryDate: permit.expiryDate ? new Date(permit.expiryDate).toISOString().split('T')[0] : '',
+      status: permit.status,
+      description: permit.description || ''
+    })
+    setEditingPermitId(permit.id)
+    setShowPermitForm(true)
+  }
+
+  const handleDeletePermit = async (id) => {
+    await fetch(`http://localhost:5000/permits/${id}`, { method: 'DELETE' })
+    fetchPermits(selectedProject.id)
+  }
+
+  const getPermitStatusBadge = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-500/20 text-green-400'
+      case 'expired': return 'bg-red-500/20 text-red-400'
+      case 'pending': return 'bg-yellow-500/20 text-yellow-400'
+      default: return 'bg-zinc-500/20 text-zinc-400'
+    }
   }
 
   return (
@@ -125,19 +141,13 @@ export default function Projects() {
           <h3 className="text-xl font-bold text-white">Projects</h3>
           <p className="text-zinc-500 text-sm">{filtered.length} of {projects.length} projects</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)}
+        <button onClick={() => { setShowForm(!showForm); setSelectedProject(null) }}
           className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
           {showForm ? 'Cancel' : '+ Add Project'}
         </button>
       </div>
 
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm flex justify-between items-center">
-          <span>⚠️ {error}</span>
-          <button onClick={fetchProjects} className="underline hover:text-red-300">Retry</button>
-        </div>
-      )}
-
+      {/* Search and Filter */}
       <div className="flex gap-3">
         <div className="relative flex-1">
           <span className="absolute left-4 top-3 text-zinc-500">🔍</span>
@@ -166,43 +176,24 @@ export default function Projects() {
           <h4 className="col-span-2 text-white font-semibold">
             {editingId ? 'Edit Project' : 'Add New Project'}
           </h4>
-
-          <input placeholder="Project Name *" value={form.name}
+          <input placeholder="Project Name" value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-
           <input placeholder="Description" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-
-          <input placeholder="Quotation (KSh)" type="number" value={form.quotation}
-            onChange={(e) => setForm({ ...form, quotation: e.target.value })}
-            className="bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
             <option value="pending">Pending</option>
             <option value="active">Active</option>
             <option value="completed">Completed</option>
           </select>
-
-          {/* ✅ Customer dropdown */}
-          <select value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}
-            className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="">No Customer Assigned</option>
-            {customers.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-
-          <input type="date" placeholder="Start Date" value={form.startDate}
+          <input type="date" value={form.startDate}
             onChange={(e) => setForm({ ...form, startDate: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-
-          <input type="date" placeholder="End Date" value={form.endDate}
+          <input type="date" value={form.endDate}
             onChange={(e) => setForm({ ...form, endDate: e.target.value })}
             className="bg-zinc-800 border border-zinc-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-
           <div className="col-span-2 flex gap-3">
             <button onClick={handleSubmit}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
@@ -216,86 +207,144 @@ export default function Projects() {
         </div>
       )}
 
-      {/* Project Cards */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-6 py-12 text-center text-zinc-600">Loading projects...</div>
-        ) : filtered.length === 0 ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-6 py-12 text-center text-zinc-600">
-            {search ? `No results for "${search}"` : 'No projects yet.'}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Projects Table */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-zinc-800">
+            <h4 className="text-white font-semibold">All Projects</h4>
+            <p className="text-zinc-500 text-xs">Click a project to manage permits</p>
           </div>
-        ) : filtered.map((p) => {
-          const totalEarned = (p.payments || []).reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0)
-          const totalSpent = (p.expenses || []).reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)
-          const profit = totalEarned - totalSpent
-          const isProfit = profit >= 0
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-zinc-800">
+                {['Name', 'Status', 'Actions'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-zinc-500 text-xs font-semibold uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan="3" className="px-4 py-8 text-center text-zinc-600">No projects yet.</td></tr>
+              ) : filtered.map((p) => (
+                <tr key={p.id}
+                  onClick={() => handleSelectProject(p)}
+                  className={`border-b border-zinc-800 cursor-pointer transition-colors ${
+                    selectedProject?.id === p.id ? 'bg-orange-500/10 border-l-2 border-l-orange-500' : 'hover:bg-zinc-800/50'
+                  }`}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-blue-500/20 rounded-lg flex items-center justify-center text-sm">🏗️</div>
+                      <div>
+                        <p className="text-white text-sm font-medium">{p.name}</p>
+                        <p className="text-zinc-500 text-xs">{p.permits?.length || 0} permits</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      p.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                      p.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>{p.status}</span>
+                  </td>
+                  <td className="px-4 py-3 flex gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); handleEdit(p) }}
+                      className="text-blue-400 hover:text-blue-300 text-xs font-medium">Edit</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id) }}
+                      className="text-red-500 hover:text-red-400 text-xs font-medium">Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-          return (
-            <div key={p.id}
-              onClick={() => setSelectedProjectId(p.id)}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:bg-zinc-800/50 transition-colors cursor-pointer">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 text-lg">🏗️</div>
+        {/* Permits Panel */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+          {selectedProject ? (
+            <>
+              <div className="px-6 py-4 border-b border-zinc-800 flex justify-between items-center">
+                <div>
+                  <h4 className="text-white font-semibold">Permits — {selectedProject.name}</h4>
+                  <p className="text-zinc-500 text-xs">{permits.length} permits</p>
+                </div>
+                <button onClick={() => setShowPermitForm(!showPermitForm)}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                  {showPermitForm ? 'Cancel' : '+ Add Permit'}
+                </button>
+              </div>
+
+              {showPermitForm && (
+                <div className="p-4 border-b border-zinc-800 grid grid-cols-2 gap-3">
+                  <input placeholder="Permit Name" value={permitForm.name}
+                    onChange={(e) => setPermitForm({ ...permitForm, name: e.target.value })}
+                    className="col-span-2 bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                  <input placeholder="Description" value={permitForm.description}
+                    onChange={(e) => setPermitForm({ ...permitForm, description: e.target.value })}
+                    className="col-span-2 bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
                   <div>
-                    <h4 className="text-white font-semibold">{p.name}</h4>
-                    <p className="text-zinc-500 text-xs">{p.description || 'No description'}</p>
-                    {/* ✅ Show linked customer name */}
-                    {p.customer && (
-                      <p className="text-orange-400 text-xs mt-0.5">👤 {p.customer.name}</p>
-                    )}
+                    <p className="text-zinc-500 text-xs mb-1">Issue Date</p>
+                    <input type="date" value={permitForm.issueDate}
+                      onChange={(e) => setPermitForm({ ...permitForm, issueDate: e.target.value })}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-zinc-500 text-xs mb-1">Expiry Date</p>
+                    <input type="date" value={permitForm.expiryDate}
+                      onChange={(e) => setPermitForm({ ...permitForm, expiryDate: e.target.value })}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                  </div>
+                  <select value={permitForm.status} onChange={(e) => setPermitForm({ ...permitForm, status: e.target.value })}
+                    className="col-span-2 bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="expired">Expired</option>
+                  </select>
+                  <div className="col-span-2">
+                    <button onClick={handlePermitSubmit}
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                      {editingPermitId ? 'Update Permit' : 'Save Permit'}
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                    p.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                    p.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
-                    'bg-yellow-500/20 text-yellow-400'
-                  }`}>{p.status}</span>
-                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                    <button onClick={(e) => handleEdit(e, p)}
-                      className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">Edit</button>
-                    <button onClick={(e) => handleDelete(e, p.id)}
-                      className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors">Delete</button>
+              )}
+
+              <div className="divide-y divide-zinc-800">
+                {permits.length === 0 ? (
+                  <p className="px-6 py-8 text-center text-zinc-600 text-sm">No permits yet. Add one above.</p>
+                ) : permits.map((permit) => (
+                  <div key={permit.id} className="px-6 py-4 hover:bg-zinc-800/50 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-white font-medium text-sm">{permit.name}</p>
+                        {permit.description && <p className="text-zinc-500 text-xs mt-0.5">{permit.description}</p>}
+                        <div className="flex gap-3 mt-2">
+                          {permit.issueDate && <p className="text-zinc-500 text-xs">Issued: {new Date(permit.issueDate).toLocaleDateString()}</p>}
+                          {permit.expiryDate && <p className="text-zinc-500 text-xs">Expires: {new Date(permit.expiryDate).toLocaleDateString()}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getPermitStatusBadge(permit.status)}`}>
+                          {permit.status}
+                        </span>
+                        <button onClick={() => handleEditPermit(permit)}
+                          className="text-blue-400 hover:text-blue-300 text-xs">Edit</button>
+                        <button onClick={() => handleDeletePermit(permit.id)}
+                          className="text-red-500 hover:text-red-400 text-xs">Delete</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-
-              {/* Financial Summary */}
-              <div className="grid grid-cols-4 gap-3">
-                <div className="bg-zinc-800/50 rounded-lg p-3">
-                  <p className="text-zinc-500 text-xs mb-1">Quotation</p>
-                  <p className="text-white font-semibold text-sm">
-                    {p.quotation ? `KSh ${Number(p.quotation).toLocaleString()}` : '-'}
-                  </p>
-                </div>
-                <div className="bg-zinc-800/50 rounded-lg p-3">
-                  <p className="text-zinc-500 text-xs mb-1">Earned</p>
-                  <p className="text-green-400 font-semibold text-sm">KSh {totalEarned.toLocaleString()}</p>
-                </div>
-                <div className="bg-zinc-800/50 rounded-lg p-3">
-                  <p className="text-zinc-500 text-xs mb-1">Spent</p>
-                  <p className="text-orange-400 font-semibold text-sm">KSh {totalSpent.toLocaleString()}</p>
-                </div>
-                <div className="bg-zinc-800/50 rounded-lg p-3">
-                  <p className="text-zinc-500 text-xs mb-1">Profit / Loss</p>
-                  <p className={`font-semibold text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-                    {isProfit ? '+' : ''}KSh {profit.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4 mt-3">
-                <p className="text-zinc-600 text-xs">
-                  📅 {p.startDate ? new Date(p.startDate).toLocaleDateString() : 'No start'} →{' '}
-                  {p.endDate ? new Date(p.endDate).toLocaleDateString() : 'No end'}
-                </p>
-                <p className="text-zinc-600 text-xs">👷 {(p.employees || []).length} employees</p>
-                <p className="text-zinc-600 text-xs">💰 {(p.payments || []).length} payments</p>
-              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <p className="text-4xl mb-3">📋</p>
+              <p className="text-white font-medium">Select a Project</p>
+              <p className="text-zinc-500 text-sm mt-1">Click on a project to view and manage its permits</p>
             </div>
-          )
-        })}
+          )}
+        </div>
       </div>
     </div>
   )

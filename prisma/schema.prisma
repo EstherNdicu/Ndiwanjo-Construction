@@ -8,17 +8,17 @@ datasource db {
 }
 
 model Employee {
-  id             Int               @id @default(autoincrement())
-  name           String
-  email          String            @unique
-  phone          String?
-  role           String
-  department     String
-  salary         Float?
-  employmentType String            @default("monthly")
-  createdAt      DateTime          @default(now())
-  projects       ProjectEmployee[]
-  monthlyPayroll MonthlyPayroll[]
+  id              Int               @id @default(autoincrement())
+  name            String
+  email           String            @unique
+  phone           String?
+  role            String
+  department      String
+  salary          Float?
+  type            String            @default("permanent")
+  createdAt       DateTime          @default(now())
+  projects        ProjectEmployee[]
+  monthlyPayrolls MonthlyPayroll[]
 }
 
 model Customer {
@@ -33,24 +33,25 @@ model Customer {
 }
 
 model Project {
-  id             Int                @id @default(autoincrement())
-  name           String
-  description    String?
-  status         String             @default("pending")
-  startDate      DateTime?
-  endDate        DateTime?
-  quotation      Float?
-  progress       Int                @default(0)
-  portalToken    String?            @unique
-  customerId     Int?
-  customer       Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  createdAt      DateTime           @default(now())
-  employees      ProjectEmployee[]
-  expenses       Expense[]
-  inventory      ProjectInventory[]
-  payments       Payment[]
-  weeklyPayrolls WeeklyPayroll[]
-  equipment      Equipment[]
+  id               Int               @id @default(autoincrement())
+  name             String
+  description      String?
+  status           String            @default("pending")
+  startDate        DateTime?
+  endDate          DateTime?
+  quotation        Float?
+  progress         Int               @default(0)
+  portalToken      String?           @unique
+  customerId       Int?
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now())
+  employees        ProjectEmployee[]
+  expenses         Expense[]
+  payments         Payment[]
+  weeklyPayrolls   WeeklyPayroll[]
+  equipment        Equipment[]
+  permits          Permit[]
+  materialRequests MaterialRequest[]
 }
 
 model ProjectEmployee {
@@ -63,25 +64,20 @@ model ProjectEmployee {
   @@unique([projectId, employeeId])
 }
 
-model Inventory {
-  id        Int                @id @default(autoincrement())
-  name      String
-  quantity  Int
-  unit      String?
-  price     Float?
-  createdAt DateTime           @default(now())
-  projects  ProjectInventory[]
-}
-
-model ProjectInventory {
+model MaterialRequest {
   id          Int       @id @default(autoincrement())
+  material    String
+  quantity    Int
+  unit        String?
   projectId   Int
-  inventoryId Int
-  quantity    Int       @default(0)
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, inventoryId])
+  project     Project   @relation(fields: [projectId], references: [id])
+  supplier    String?
+  dateNeeded  DateTime?
+  status      String    @default("pending")
+  notes       String?
+  requestedBy String?
+  cost        Float?
+  createdAt   DateTime  @default(now())
 }
 
 model Payment {
@@ -115,31 +111,31 @@ model Expense {
 }
 
 model WeeklyPayroll {
-  id           Int      @id @default(autoincrement())
-  projectId    Int
-  foremanName  String
-  numWorkers   Int
-  dailyRate    Float
-  daysWorked   Float
-  totalAmount  Float
-  weekStart    DateTime
-  weekEnd      DateTime
-  note         String?
-  createdAt    DateTime @default(now())
-  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  foremanName String
+  numWorkers  Int
+  dailyRate   Float
+  daysWorked  Float
+  totalAmount Float
+  weekStart   DateTime
+  weekEnd     DateTime
+  note        String?
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model MonthlyPayroll {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   employeeId Int
   month      Int
   year       Int
   amount     Float
-  paid       Boolean  @default(false)
+  paid       Boolean   @default(false)
   paidAt     DateTime?
   note       String?
-  createdAt  DateTime @default(now())
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, month, year])
 }
@@ -188,14 +184,26 @@ model Supplier {
 }
 
 model SupplierPurchase {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   supplierId  Int
   description String
   amount      Float
-  paid        Boolean  @default(false)
+  paid        Boolean   @default(false)
   paidAt      DateTime?
   projectId   Int?
-  date        DateTime @default(now())
-  createdAt   DateTime @default(now())
-  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  date        DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  supplier    Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}
+
+model Permit {
+  id          Int       @id @default(autoincrement())
+  name        String
+  projectId   Int
+  project     Project   @relation(fields: [projectId], references: [id])
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  status      String    @default("active")
+  description String?
+  createdAt   DateTime  @default(now())
 }
