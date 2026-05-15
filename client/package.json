@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+  "dev": "vite",
   "build": "npx vite build",
-    "preview": "vite preview"
-  },
+  "preview": "vite preview"
+},
   "dependencies": {
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
