@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "buildCommand": "cd client && npm install && chmod +x node_modules/.bin/vite && npx vite build",
+  "outputDirectory": "client/dist",
+  "installCommand": "cd client && npm install"
+}
